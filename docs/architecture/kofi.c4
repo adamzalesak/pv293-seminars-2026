@@ -1,0 +1,102 @@
+// KoFI — architecture model (LikeC4)
+//
+// Seminar 1: this is a PROPOSAL. The system does not exist yet.
+// Seminar 2: compare with what was actually built, then keep it as as-is.
+//
+// Preview:  npx likec4 start
+// Export:   npx likec4 export png -o docs/architecture/
+
+specification {
+  element actor {
+    style {
+      shape person
+    }
+  }
+  element system
+  element externalSystem {
+    style {
+      color muted
+    }
+  }
+  element container
+  element component
+}
+
+model {
+  customer = actor 'Customer' {
+    description 'Browses the catalog and places orders'
+  }
+
+  operator = actor 'Shop operator' {
+    description 'Maintains the catalog and handles orders'
+  }
+
+  kofi = system 'KoFI' {
+    description 'E-shop: catalog, orders, stock, customer e-mails'
+
+    api = container 'Kofi.API' {
+      technology 'ASP.NET Core 10'
+      description 'REST API and all business logic'
+
+      // --- Level 3: the inside of the container, as decided in ADR-0002 ---
+      // Three projects referenced in a line. How the code inside each of
+      // them is organised is not visible at this level.
+      apiProject = component 'Kofi.API' {
+        technology 'ASP.NET Core'
+        description 'HTTP endpoints and composition root'
+      }
+      businessProject = component 'Kofi.BusinessLayer' {
+        technology 'C# class library'
+        description 'What the application does'
+      }
+      dataProject = component 'Kofi.DataAccessLayer' {
+        technology 'EF Core'
+        description 'Entities, DbContext, repositories'
+      }
+
+      apiProject -> businessProject 'references'
+      businessProject -> dataProject 'references'
+    }
+
+    db = container 'Database' {
+      technology 'PostgreSQL 17'
+      description 'Products, orders, customers'
+      style {
+        shape cylinder
+      }
+    }
+
+    dataProject -> db 'reads / writes' 'SQL (EF Core)'
+  }
+
+  paymentGateway = externalSystem 'Payment gateway' {
+    description 'Card payments — someone else runs it'
+  }
+
+  mailServer = externalSystem 'Mail server' {
+    description 'Transactional e-mails'
+  }
+
+  customer -> api 'browses, orders' 'HTTPS'
+  operator -> api 'manages catalog' 'HTTPS'
+  api -> paymentGateway 'charges the card' 'HTTPS'
+  api -> mailServer 'sends confirmations' 'SMTP'
+}
+
+views {
+  view index {
+    title 'KoFI — system context (C4 L1)'
+    include customer, operator, kofi, paymentGateway, mailServer
+  }
+
+  view containers of kofi {
+    title 'KoFI — containers (C4 L2)'
+    include *
+    exclude apiProject, businessProject, dataProject
+  }
+
+  view insideApi of api {
+    title 'KoFI — components inside the container (C4 L3, per ADR-0002)'
+    include *
+  }
+}
