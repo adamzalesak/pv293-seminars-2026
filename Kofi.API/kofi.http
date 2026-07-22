@@ -1,0 +1,152 @@
+@host = http://localhost:5276
+@gateway = http://localhost:5299
+
+### Log in as the customer (Petra) and paste accessToken below
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{ "email": "petra@example.com", "password": "Customer123!" }
+
+### Log in as the administrator and paste accessToken below
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@kofi.test", "password": "Admin123!" }
+
+###
+@customerToken = PASTE-CUSTOMER-TOKEN
+@adminToken = PASTE-ADMIN-TOKEN
+@orderId = REPLACE-WITH-ORDER-ID
+@paymentId = REPLACE-WITH-PAYMENT-ID
+
+# Seeded products keep their ids across restarts.
+@v60Id = 2c9d4a70-e6b3-4f81-8d5c-7b1e3a9f6088
+@grinderId = 8e2b5f19-3c7a-4d0e-91b6-a4f2c8e5d077
+@kolumbieId = 7c1e9b42-0f3d-4a6e-8b25-d4f1a9c3e522
+
+### List products
+GET {{host}}/products
+
+### The catalogue is paged: page and pageSize (default 20, at most 100)
+GET {{host}}/products?page=2&pageSize=5
+
+### List products sorted by price
+GET {{host}}/products?sort=price
+
+### One product
+GET {{host}}/products/{{v60Id}}
+
+### Change a price (administrator)
+PUT {{host}}/products/{{kolumbieId}}/price
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "price": 11.40 }
+
+### List customers
+GET {{host}}/customers
+Authorization: Bearer {{adminToken}}
+
+### Create an order
+POST {{host}}/orders
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "customerName": "Petra Nováková",
+  "street": "Kounicova 12",
+  "city": "Brno",
+  "zip": "60200",
+  "items": [
+    { "productId": "{{kolumbieId}}", "quantity": 2 }
+  ]
+}
+
+### Order a V60 and 999 grinders
+POST {{host}}/orders
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "customerName": "Petra Nováková",
+  "street": "Kounicova 12",
+  "city": "Brno",
+  "zip": "60200",
+  "items": [
+    { "productId": "{{v60Id}}", "quantity": 1 },
+    { "productId": "{{grinderId}}", "quantity": 999 }
+  ]
+}
+
+### Create an order with every field of the order filled in
+POST {{host}}/orders
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "customerName": "Petra Nováková",
+  "customerEmail": "someone@example.com",
+  "street": "Kounicova 12",
+  "city": "Brno",
+  "zip": "60200",
+  "status": "Shipped",
+  "total": 99999,
+  "items": [
+    { "productId": "{{kolumbieId}}", "quantity": 2, "unitPrice": 1, "productName": "whatever" }
+  ]
+}
+
+### Pay an order (customer): the shop creates a payment at the provider and
+### answers with its payment page. In a browser you would go to redirectUrl.
+POST {{host}}/orders/{{orderId}}/pay
+Authorization: Bearer {{customerToken}}
+
+### Without a browser: press "Pay" on the provider's page
+POST {{gateway}}/payments/{{paymentId}}/approve
+
+### The provider sends the browser back here; the shop asks the provider
+### for the payment's status before it marks the order paid
+GET {{host}}/orders/{{orderId}}/payment-return?paymentId={{paymentId}}
+
+### My orders (customer)
+GET {{host}}/orders
+Authorization: Bearer {{customerToken}}
+
+### My order (customer): only your own, anyone else's is 404
+GET {{host}}/orders/{{orderId}}
+Authorization: Bearer {{customerToken}}
+
+### All orders (administrator)
+GET {{host}}/orders
+Authorization: Bearer {{adminToken}}
+
+### Paid orders with their items, most expensive first
+GET {{host}}/orders?onlyPaid=true&includeItems=true&sortBy=total
+Authorization: Bearer {{adminToken}}
+
+### Order detail with the price breakdown
+GET {{host}}/orders/{{orderId}}
+Authorization: Bearer {{adminToken}}
+
+### Create an order without items
+POST {{host}}/orders
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{ "customerName": "Petra Nováková", "items": [] }
+
+### Cancel an order that does not exist
+POST {{host}}/orders/00000000-0000-0000-0000-000000000000/cancel
+Authorization: Bearer {{adminToken}}
+
+### Ship an order that does not exist
+POST {{host}}/orders/00000000-0000-0000-0000-000000000000/ship
+Authorization: Bearer {{adminToken}}
+
+### Register a customer
+POST {{host}}/customers
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "name": "", "email": "not-an-email" }
