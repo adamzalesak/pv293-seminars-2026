@@ -1,0 +1,144 @@
+@host = http://localhost:5276
+@gateway = http://localhost:5299
+
+### Log in as the customer (Petra) and paste accessToken below
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{ "email": "petra@example.com", "password": "Customer123!" }
+
+### Log in as the administrator and paste accessToken below
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@kofi.test", "password": "Admin123!" }
+
+###
+@customerToken = PASTE-CUSTOMER-TOKEN
+@adminToken = PASTE-ADMIN-TOKEN
+@orderId = REPLACE-WITH-ORDER-ID
+@paymentId = REPLACE-WITH-PAYMENT-ID
+
+### List products
+GET {{host}}/products
+
+### The catalogue is paged: page and pageSize (default 20, at most 100)
+GET {{host}}/products?page=2&pageSize=5
+
+### List products sorted by price
+GET {{host}}/products?sort=price
+
+### List customers
+GET {{host}}/customers
+Authorization: Bearer {{adminToken}}
+
+### Create an order
+POST {{host}}/orders
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "customerName": "Ada Lovelace",
+  "street": "Botanicka 68a",
+  "city": "Brno",
+  "zip": "60200",
+  "items": [
+    { "productId": "REPLACE-WITH-PRODUCT-ID", "quantity": 2 }
+  ]
+}
+
+
+### Pay an order (customer): the shop creates a payment at the provider and
+### answers with its payment page. In a browser you would go to redirectUrl.
+POST {{host}}/orders/{{orderId}}/pay
+Authorization: Bearer {{customerToken}}
+
+### Without a browser: press "Pay" on the provider's page
+POST {{gateway}}/payments/{{paymentId}}/approve
+
+### The provider sends the browser back here; the shop asks the provider
+### for the payment's status before it marks the order paid
+GET {{host}}/orders/{{orderId}}/payment-return?paymentId={{paymentId}}
+
+### My order (customer): only your own, anyone else's is 404
+GET {{host}}/orders/{{orderId}}
+Authorization: Bearer {{customerToken}}
+
+### KOFI-118: stock is reserved even though the order fails
+### (first item is in stock, second one is not — check the stock of the
+###  first product before and after)
+POST {{host}}/orders
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "customerName": "Ada Lovelace",
+  "street": "Botanicka 68a",
+  "city": "Brno",
+  "zip": "60200",
+  "items": [
+    { "productId": "REPLACE-WITH-V60-ID", "quantity": 1 },
+    { "productId": "REPLACE-WITH-GRINDER-ID", "quantity": 999 }
+  ]
+}
+
+### Get order detail (price breakdown, recalculated)
+GET {{host}}/orders/REPLACE-WITH-ORDER-ID
+Authorization: Bearer {{adminToken}}
+
+### The same OrderDto goes in and comes out.
+### Status, total, the e-mail and the item prices below are ignored on the way in —
+### the server decides them. Nothing tells you that.
+POST {{host}}/orders
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "customerName": "Ada Lovelace",
+  "customerEmail": "ada@example.com",
+  "street": "Botanicka 68a",
+  "city": "Brno",
+  "zip": "60200",
+  "status": "Shipped",
+  "total": 99999,
+  "items": [
+    { "productId": "REPLACE-WITH-PRODUCT-ID", "quantity": 2, "unitPrice": 1, "productName": "whatever" }
+  ]
+}
+
+### And the list returns that same shape with itemsTotal, shipping and
+### items empty, because only the detail bothers to fill them in.
+GET {{host}}/orders
+Authorization: Bearer {{adminToken}}
+
+### List orders
+GET {{host}}/orders
+Authorization: Bearer {{adminToken}}
+
+### The same list, the way the admin screen calls it
+GET {{host}}/orders?onlyPaid=true&includeItems=true&sortBy=total
+Authorization: Bearer {{adminToken}}
+
+### Three ways to fail
+### 1) 400 with { error: ... }
+POST {{host}}/orders
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{ "customerName": "X", "items": [] }
+
+### 2) 500 with a plain string
+POST {{host}}/orders/00000000-0000-0000-0000-000000000000/cancel
+Authorization: Bearer {{adminToken}}
+
+### 3) unhandled exception
+POST {{host}}/orders/00000000-0000-0000-0000-000000000000/ship
+Authorization: Bearer {{adminToken}}
+
+### No validation anywhere: empty name, invalid e-mail, 201 Created
+POST {{host}}/customers
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "name": "", "email": "not-an-email" }
