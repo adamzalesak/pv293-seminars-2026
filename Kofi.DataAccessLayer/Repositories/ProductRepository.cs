@@ -1,0 +1,58 @@
+using Microsoft.EntityFrameworkCore;
+using Kofi.DataAccessLayer.Data;
+using Kofi.DataAccessLayer.Models;
+
+namespace Kofi.DataAccessLayer.Repositories;
+
+public class ProductRepository(AppDbContext db)
+{
+    public async Task<Product?> GetById(Guid id)
+    {
+        return await db.Products.FirstOrDefaultAsync(p => p.Id == id);
+    }
+
+    public async Task<List<Product>> GetAll()
+    {
+        return await db.Products.ToListAsync();
+    }
+
+    public async Task<List<Product>> GetActive()
+    {
+        return await db.Products.Where(p => p.IsActive).ToListAsync();
+    }
+
+    public async Task<(List<Product> Items, int TotalCount)> Search(string? term, string? sort, int page, int pageSize)
+    {
+        var query = db.Products.Where(p => p.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            query = query.Where(p =>
+                EF.Functions.ILike(p.Name, $"%{term}%")
+                || EF.Functions.ILike(p.Description, $"%{term}%"));
+        }
+
+        query = sort switch
+        {
+            "price" => query.OrderBy(p => p.Price),
+            "price_desc" => query.OrderByDescending(p => p.Price),
+            _ => query.OrderBy(p => p.Name),
+        };
+
+        var totalCount = await query.CountAsync();
+        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return (items, totalCount);
+    }
+
+    public async Task Add(Product product)
+    {
+        db.Products.Add(product);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task Update(Product product)
+    {
+        db.Products.Update(product);
+        await db.SaveChangesAsync();
+    }
+}

@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="Kofi.AppHost/Kofi.AppHost.csproj" />
+  <Project Path="Kofi.ServiceDefaults/Kofi.ServiceDefaults.csproj" />
+  <Project Path="Kofi.API/Kofi.API.csproj" />
+  <Project Path="Kofi.BusinessLayer/Kofi.BusinessLayer.csproj" />
+  <Project Path="Kofi.DataAccessLayer/Kofi.DataAccessLayer.csproj" />
+  <Project Path="PaymentGateway/PaymentGateway.csproj" />
+</Solution>
