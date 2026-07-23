@@ -1,7 +1,8 @@
 // KoFI — architecture model (LikeC4)
 //
-// Seminar 1: this is a PROPOSAL. The system does not exist yet.
-// Seminar 2: compare with what was actually built, then keep it as as-is.
+// As-is since seminar 2. Drawn on design day as a proposal, then held up
+// against four months of code and it survived: three projects, still one
+// container. The web front end built meanwhile joined it as a second one.
 //
 // Preview:  npx likec4 start
 // Export:   npx likec4 export png -o docs/architecture/
@@ -58,6 +59,18 @@ model {
       businessProject -> dataProject 'references'
     }
 
+    // Added in seminar 2: the shop got a web front end. It runs in the
+    // browser, apart from the API, so it is a container of its own.
+    web = container 'Kofi.Web' {
+      technology 'React, TypeScript'
+      description 'The shop and its administration, in the browser'
+      style {
+        shape browser
+      }
+    }
+
+    web -> api 'calls' 'JSON over HTTPS'
+
     db = container 'Database' {
       technology 'PostgreSQL 17'
       description 'Products, orders, customers'
@@ -77,8 +90,8 @@ model {
     description 'Transactional e-mails'
   }
 
-  customer -> api 'browses, orders' 'HTTPS'
-  operator -> api 'manages catalog' 'HTTPS'
+  customer -> web 'browses, orders, pays' 'HTTPS'
+  operator -> web 'manages catalog and orders' 'HTTPS'
   api -> paymentGateway 'charges the card' 'HTTPS'
   api -> mailServer 'sends confirmations' 'SMTP'
 }
@@ -92,7 +105,7 @@ views {
   view containers of kofi {
     title 'KoFI — containers (C4 L2)'
     include *
-    exclude apiProject, businessProject, dataProject
+    autoLayout LeftRight
   }
 
   view insideApi of api {

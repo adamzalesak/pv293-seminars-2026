@@ -1,7 +1,9 @@
 using System.Security.Claims;
+using MediatR;
 using Kofi.API.Auth;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Kofi.BusinessLayer.Dtos;
+using Kofi.BusinessLayer.Features.Orders.CreateOrder;
 using Kofi.BusinessLayer.Services;
 
 namespace Kofi.API.Endpoints;
@@ -41,22 +43,10 @@ public static class OrderEndpoints
             return TypedResults.Ok(detail);
         }).RequireAuthorization();
 
-        app.MapPost("/orders", async Task<Results<Created<OrderDto>, BadRequest<ErrorResponse>>> (IOrderService service, OrderDto request, ClaimsPrincipal user) =>
+        app.MapPost("/orders", async Task<Created<CreateOrderResponse>> (IMediator mediator, CreateOrderCommand command) =>
         {
-            if (string.IsNullOrWhiteSpace(request.CustomerName))
-            {
-                return TypedResults.BadRequest(new ErrorResponse("Customer name is required"));
-            }
-
-            try
-            {
-                var order = await service.CreateOrder(user.CustomerId()!.Value, request);
-                return TypedResults.Created($"/orders/{order.Id}", order);
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.BadRequest(new ErrorResponse(ex.Message));
-            }
+            var order = await mediator.Send(command);
+            return TypedResults.Created($"/orders/{order.Id}", order);
         }).RequireAuthorization(Roles.Customer);
 
         app.MapPost("/orders/{id:guid}/cancel", async Task<Results<Ok, ContentHttpResult>> (IOrderService service, Guid id) =>

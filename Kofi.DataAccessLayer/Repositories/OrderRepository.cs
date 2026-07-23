@@ -27,10 +27,9 @@ public class OrderRepository(AppDbContext db) : IOrderRepository
         return db.Orders;
     }
 
-    public async Task Add(Order order)
+    public void Add(Order order)
     {
         db.Orders.Add(order);
-        await db.SaveChangesAsync();
     }
 
     public async Task Update(Order order)

@@ -1,6 +1,6 @@
 # ADR-0002: Inside the API we go n-layer, with layers per entity
 
-**Status:** Accepted (Seminar 1)
+**Status:** Superseded by [ADR-0003](0003-features-in-the-application-layer.md) (Seminar 2)
 
 ## Context
 

@@ -7,6 +7,9 @@
 
 export * from './addItemRequest';
 export * from './changePriceRequest';
+export * from './createOrderCommand';
+export * from './createOrderItem';
+export * from './createOrderResponse';
 export * from './customerDto';
 export * from './errorResponse';
 export * from './getOrdersExportParams';
