@@ -1,4 +1,4 @@
-# Seminar 2: Four months later
+# Seminar 2 — reference solution
 
 Last seminar we designed KoFI — a small e-shop selling specialty coffee
 gear — and wrote down two decisions:
@@ -120,3 +120,24 @@ Exactly what ADR-0002 said we would build.
 
 Worth checking while you read: could an endpoint in `Kofi.API/Endpoints`
 inject `AppDbContext` and skip the service? What stops it?
+
+## What this refactor did not fix
+
+Whatever bothered you most in Task 1 is probably still here.
+
+The price of an order is a rule several features need, so it lives in
+`PricingService`. `CreateOrderHandler`, `EmailService` and the payment ask
+it; the order list and detail in `OrderService` still have their own
+copies until they move. The slices fixed the transaction boundary and the
+cross-cutting concerns. They did not fix a missing domain model, because
+that is not what a slice is for.
+
+That is the next decision, not this one.
+
+## One thing worth trying
+
+Write a test for `CreateOrderHandler`. Then write the same test against
+`OrderService.CreateOrder`, which is still in the repo.
+
+Count what you have to stand up in each case. That number is the argument
+this seminar could not fit into a slide.

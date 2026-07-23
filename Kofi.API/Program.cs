@@ -1,3 +1,8 @@
+using System.Globalization;
+using FluentValidation;
+using Kofi.API.Infrastructure;
+using Kofi.BusinessLayer.Behaviors;
+using Kofi.BusinessLayer.Features.Orders.CreateOrder;
 using Kofi.DataAccessLayer.Data;
 using Kofi.API.Auth;
 using Kofi.API.Endpoints;
@@ -27,10 +32,31 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddHttpClient<IPaymentGatewayClient, PaymentGatewayClient>(c => c.BaseAddress = new Uri("https+http://payments"));
 
+// Audit is registered outside the transaction: inside it, a command that
+// failed to commit would still leave an audit record saying it happened.
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssemblyContaining<CreateOrderCommand>();
+    cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
+    cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
+    cfg.AddOpenBehavior(typeof(AuditBehavior<,>));
+    cfg.AddOpenBehavior(typeof(TransactionBehavior<,>));
+});
+
+builder.Services.AddValidatorsFromAssemblyContaining<CreateOrderCommand>();
+
+// Messages follow the machine's locale by default; the codebase is English.
+ValidatorOptions.Global.LanguageManager.Culture = CultureInfo.InvariantCulture;
+
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
+
 builder.Services.AddOpenApi(options => options.AddBearerScheme());
 builder.AddKofiAuth();
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 // Product images live in wwwroot/images.
 app.UseStaticFiles();

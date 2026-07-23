@@ -5,21 +5,12 @@ using Kofi.DataAccessLayer.Models;
 
 namespace Kofi.BusinessLayer.Services;
 
-public class EmailService(ILogger<EmailService> logger, IConfiguration config) : IEmailService
+public class EmailService(ILogger<EmailService> logger, IConfiguration config, IPricingService pricing) : IEmailService
 {
     public async Task SendOrderConfirmation(Order order)
     {
-        decimal itemsTotal = 0;
-        foreach (var item in order.Items)
-        {
-            itemsTotal = itemsTotal + item.UnitPrice * item.Quantity;
-        }
-
-        decimal shipping = 0;
-        if (itemsTotal < 50)
-        {
-            shipping = 4.99m;
-        }
+        var itemsTotal = pricing.CalculateItemsTotal(order.Items);
+        var shipping = pricing.CalculateShipping(itemsTotal);
 
         var total = itemsTotal + shipping;
 

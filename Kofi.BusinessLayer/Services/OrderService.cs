@@ -179,7 +179,7 @@ public class OrderService(
 
         var total = itemsTotal < 50 ? itemsTotal + 4.99m : itemsTotal;
 
-        await orders.Add(order);
+        orders.Add(order);
 
         await email.SendOrderConfirmation(order);
 

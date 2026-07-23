@@ -26,6 +26,8 @@ import type {
 import type {
   AddItemRequest,
   ChangePriceRequest,
+  CreateOrderCommand,
+  CreateOrderResponse,
   CustomerDto,
   ErrorResponse,
   GetOrdersExportParams,
@@ -923,7 +925,7 @@ export const getPostOrdersUrl = () => {
   return `/orders`
 }
 
-export const postOrders = async (orderDto: OrderDto, options?: Parameters<typeof apiFetch>[1]): Promise<OrderDto> => {
+export const postOrders = async (createOrderCommand: CreateOrderCommand, options?: Parameters<typeof apiFetch>[1]): Promise<CreateOrderResponse> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -939,12 +941,12 @@ export const postOrders = async (orderDto: OrderDto, options?: Parameters<typeof
     }
     return headers;
   };
-return apiFetch<OrderDto>(getPostOrdersUrl(),
+return apiFetch<CreateOrderResponse>(getPostOrdersUrl(),
   {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(orderDto)
+    body: JSON.stringify(createOrderCommand)
   }
 );}
 
@@ -954,7 +956,7 @@ return apiFetch<OrderDto>(getPostOrdersUrl(),
 
 export const getPostOrdersMutationKey = () => ['postOrders'] as const;
 
-export const getPostOrdersMutationOptions = <TError = ErrorType<ErrorResponse>,
+export const getPostOrdersMutationOptions = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrders>>, TError,PostOrdersMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof postOrders>>, TError,PostOrdersMutationVariables, TContext> => {
 
@@ -982,11 +984,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PostOrdersMutationResult = NonNullable<Awaited<ReturnType<typeof postOrders>>>
-    export type PostOrdersMutationBody = BodyType<OrderDto>
-    export type PostOrdersMutationError = ErrorType<ErrorResponse>
-    export type PostOrdersMutationVariables = {data: BodyType<OrderDto>}
+    export type PostOrdersMutationBody = BodyType<CreateOrderCommand>
+    export type PostOrdersMutationError = ErrorType<unknown>
+    export type PostOrdersMutationVariables = {data: BodyType<CreateOrderCommand>}
 
-    export const usePostOrders = <TError = ErrorType<ErrorResponse>,
+    export const usePostOrders = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrders>>, TError,PostOrdersMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postOrders>>,
