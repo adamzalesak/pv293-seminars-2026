@@ -1,10 +1,19 @@
-using System.Security.Claims;
-using MediatR;
 using Kofi.API.Auth;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Kofi.BusinessLayer.Dtos;
+using MediatR;
+using Kofi.BusinessLayer.Features.Orders.AddItemToOrder;
+using Kofi.BusinessLayer.Features.Orders.CancelOrder;
+using Kofi.BusinessLayer.Features.Orders.ConfirmOrderPayment;
 using Kofi.BusinessLayer.Features.Orders.CreateOrder;
-using Kofi.BusinessLayer.Services;
+using Kofi.BusinessLayer.Features.Orders.ExportOrders;
+using Kofi.BusinessLayer.Features.Orders.GetOrderCountByStatus;
+using Kofi.BusinessLayer.Features.Orders.GetOrderDetail;
+using Kofi.BusinessLayer.Features.Orders.GetOrders;
+using Kofi.BusinessLayer.Features.Orders.MarkOrderShipped;
+using Kofi.BusinessLayer.Features.Orders.RemoveItemFromOrder;
+using Kofi.BusinessLayer.Features.Orders.ResendOrderConfirmation;
+using Kofi.BusinessLayer.Features.Orders.StartOrderPayment;
+using Kofi.BusinessLayer.Features.Orders.UpdateShippingAddress;
 
 namespace Kofi.API.Endpoints;
 
@@ -12,158 +21,99 @@ public static class OrderEndpoints
 {
     public static void MapOrderEndpoints(this WebApplication app)
     {
-        // A customer sees their own orders, the administrator everyone's.
-        app.MapGet("/orders", async Task<Results<Ok<List<OrderDto>>, ProblemHttpResult>> (
-            IOrderService service,
-            ClaimsPrincipal user,
-            bool? includeItems,
-            bool? onlyPaid,
-            DateTime? from,
-            string? sortBy) =>
-        {
-            try
-            {
-                var orders = await service.GetOrders(
-                    user.CustomerId(), includeItems ?? false, onlyPaid ?? false, from, sortBy);
-                return TypedResults.Ok(orders);
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.Problem(ex.Message);
-            }
-        }).RequireAuthorization();
+        var orders = app.MapGroup("/orders").WithTags("Orders").RequireAuthorization();
 
-        app.MapGet("/orders/{id:guid}", async Task<Results<Ok<OrderDto>, NotFound>> (IOrderService service, Guid id, ClaimsPrincipal user) =>
-        {
-            var detail = await service.GetOrderDetail(id, user.CustomerId());
-            if (detail == null)
+        orders.MapGet("", async Task<Ok<List<OrderSummary>>> (
+            IMediator mediator, bool? onlyPaid, DateTime? from, string? sortBy) =>
+            TypedResults.Ok(await mediator.Send(new GetOrdersQuery
             {
-                return TypedResults.NotFound();
-            }
-            return TypedResults.Ok(detail);
-        }).RequireAuthorization();
+                OnlyPaid = onlyPaid,
+                From = from,
+                SortBy = sortBy,
+            })));
 
-        app.MapPost("/orders", async Task<Created<CreateOrderResponse>> (IMediator mediator, CreateOrderCommand command) =>
+        orders.MapGet("/export", async Task<ContentHttpResult> (IMediator mediator, DateTime? from) =>
+            TypedResults.Text(await mediator.Send(new ExportOrdersQuery { From = from }), "text/csv"))
+            .RequireAuthorization(Roles.Administrator);
+
+        orders.MapGet("/stats/{status}", async Task<Ok<OrderCountResponse>> (IMediator mediator, string status) =>
+            TypedResults.Ok(new OrderCountResponse(
+                status, await mediator.Send(new GetOrderCountByStatusQuery { Status = status }))))
+            .RequireAuthorization(Roles.Administrator);
+
+        orders.MapGet("/{id:guid}", async Task<Results<Ok<OrderDetail>, NotFound>> (IMediator mediator, Guid id) =>
+        {
+            var detail = await mediator.Send(new GetOrderDetailQuery { Id = id });
+            return detail == null ? TypedResults.NotFound() : TypedResults.Ok(detail);
+        });
+
+        orders.MapPost("", async Task<Created<CreateOrderResponse>> (IMediator mediator, CreateOrderCommand command) =>
         {
             var order = await mediator.Send(command);
             return TypedResults.Created($"/orders/{order.Id}", order);
         }).RequireAuthorization(Roles.Customer);
 
-        app.MapPost("/orders/{id:guid}/cancel", async Task<Results<Ok, ContentHttpResult>> (IOrderService service, Guid id) =>
+        orders.MapPost("/{id:guid}/cancel", async Task<Ok> (IMediator mediator, Guid id) =>
         {
-            try
-            {
-                await service.CancelOrder(id);
-                return TypedResults.Ok();
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.Text("Error: " + ex.Message, "text/plain", null, 500);
-            }
+            await mediator.Send(new CancelOrderCommand { Id = id });
+            return TypedResults.Ok();
         }).RequireAuthorization(Roles.Administrator);
 
-        app.MapPost("/orders/{id:guid}/pay", async Task<Results<Ok<PaymentStartedResponse>, BadRequest<ErrorResponse>>> (
-            IOrderService service, Guid id, ClaimsPrincipal user, HttpRequest http) =>
+        orders.MapPost("/{id:guid}/pay", async Task<Ok<StartOrderPaymentResponse>> (
+            IMediator mediator, Guid id, HttpRequest http) =>
         {
             // The provider sends the customer back here when they are done.
-            var returnUrl = $"{http.Scheme}://{http.Host}/orders/{id}/payment-return";
-            try
+            var payment = await mediator.Send(new StartOrderPaymentCommand
             {
-                var payment = await service.StartPayment(id, user.CustomerId()!.Value, returnUrl);
-                return TypedResults.Ok(new PaymentStartedResponse(payment.PaymentId, payment.RedirectUrl));
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.BadRequest(new ErrorResponse(ex.Message));
-            }
+                Id = id,
+                ReturnUrl = $"{http.Scheme}://{http.Host}/orders/{id}/payment-return",
+            });
+            return TypedResults.Ok(payment);
         }).RequireAuthorization(Roles.Customer);
 
         // The provider's page redirects the browser here without our token,
         // so the endpoint is open and trusts nothing but the provider itself.
-        app.MapGet("/orders/{id:guid}/payment-return", async Task<Results<Ok<PaymentReturnResponse>, BadRequest<ErrorResponse>>> (IOrderService service, Guid id, Guid paymentId) =>
-        {
-            try
-            {
-                var status = await service.ConfirmPayment(id, paymentId);
-                return TypedResults.Ok(new PaymentReturnResponse(id, status.ToString()));
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.BadRequest(new ErrorResponse(ex.Message));
-            }
-        });
+        orders.MapGet("/{id:guid}/payment-return", async Task<Ok<ConfirmOrderPaymentResponse>> (IMediator mediator, Guid id, Guid paymentId) =>
+            TypedResults.Ok(await mediator.Send(new ConfirmOrderPaymentCommand { Id = id, PaymentId = paymentId })))
+            .AllowAnonymous();
 
-        app.MapPost("/orders/{id:guid}/ship", async Task<Ok> (IOrderService service, Guid id) =>
+        orders.MapPost("/{id:guid}/ship", async Task<Ok> (IMediator mediator, Guid id) =>
         {
-            await service.MarkAsShipped(id);
+            await mediator.Send(new MarkOrderShippedCommand { Id = id });
             return TypedResults.Ok();
         }).RequireAuthorization(Roles.Administrator);
 
-        app.MapPut("/orders/{id:guid}/address", async Task<Results<NoContent, ProblemHttpResult>> (
-            IOrderService service, Guid id, UpdateAddressRequest request) =>
+        orders.MapPut("/{id:guid}/address", async Task<NoContent> (
+            IMediator mediator, Guid id, UpdateShippingAddressRequest request) =>
         {
-            try
+            await mediator.Send(new UpdateShippingAddressCommand
             {
-                await service.UpdateShippingAddress(id, request.Street, request.City, request.Zip);
-                return TypedResults.NoContent();
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.Problem(ex.Message);
-            }
+                Id = id, Street = request.Street, City = request.City, Zip = request.Zip,
+            });
+            return TypedResults.NoContent();
         }).RequireAuthorization(Roles.Administrator);
 
-        app.MapPost("/orders/{id:guid}/items", async Task<Results<Ok, BadRequest<string>>> (
-            IOrderService service, Guid id, AddItemRequest request) =>
+        orders.MapPost("/{id:guid}/items", async Task<Ok> (
+            IMediator mediator, Guid id, AddItemToOrderRequest request) =>
         {
-            try
+            await mediator.Send(new AddItemToOrderCommand
             {
-                await service.AddItemToOrder(id, request.ProductId, request.Quantity);
-                return TypedResults.Ok();
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.BadRequest(ex.Message);
-            }
+                OrderId = id, ProductId = request.ProductId, Quantity = request.Quantity,
+            });
+            return TypedResults.Ok();
         }).RequireAuthorization(Roles.Administrator);
 
-        app.MapDelete("/orders/{id:guid}/items/{itemId:guid}", async Task<Results<NoContent, BadRequest<string>>> (
-            IOrderService service, Guid id, Guid itemId) =>
+        orders.MapDelete("/{id:guid}/items/{itemId:guid}", async Task<NoContent> (
+            IMediator mediator, Guid id, Guid itemId) =>
         {
-            try
-            {
-                await service.RemoveItemFromOrder(id, itemId);
-                return TypedResults.NoContent();
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.BadRequest(ex.Message);
-            }
+            await mediator.Send(new RemoveItemFromOrderCommand { OrderId = id, OrderItemId = itemId });
+            return TypedResults.NoContent();
         }).RequireAuthorization(Roles.Administrator);
 
-        app.MapPost("/orders/{id:guid}/resend-confirmation", async Task<Results<Ok, ProblemHttpResult>> (IOrderService service, Guid id) =>
+        orders.MapPost("/{id:guid}/resend-confirmation", async Task<Ok> (IMediator mediator, Guid id) =>
         {
-            try
-            {
-                await service.ResendConfirmationEmail(id);
-                return TypedResults.Ok();
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.Problem(ex.Message);
-            }
-        }).RequireAuthorization(Roles.Administrator);
-
-        app.MapGet("/orders/export", async Task<ContentHttpResult> (IOrderService service, DateTime? from) =>
-        {
-            var csv = await service.ExportOrdersToCsv(from);
-            return TypedResults.Text(csv, "text/csv");
-        }).RequireAuthorization(Roles.Administrator);
-
-        app.MapGet("/orders/stats/{status}", async Task<Ok<OrderCountResponse>> (IOrderService service, string status) =>
-        {
-            var count = await service.GetOrderCountByStatus(status);
-            return TypedResults.Ok(new OrderCountResponse(status, count));
+            await mediator.Send(new ResendOrderConfirmationCommand { Id = id });
+            return TypedResults.Ok();
         }).RequireAuthorization(Roles.Administrator);
     }
 }

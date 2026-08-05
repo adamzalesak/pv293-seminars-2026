@@ -42,7 +42,7 @@
         "/products": {
             "get": {
                 "tags": [
-                    "Kofi.API"
+                    "Products"
                 ],
                 "parameters": [
                     {
@@ -97,7 +97,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/PagedResultOfProductDto"
+                                    "$ref": "#/components/schemas/PagedResultOfProductSummary"
                                 }
                             }
                         }
@@ -106,13 +106,13 @@
             },
             "post": {
                 "tags": [
-                    "Kofi.API"
+                    "Products"
                 ],
                 "requestBody": {
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/ProductDto"
+                                "$ref": "#/components/schemas/CreateProductCommand"
                             }
                         }
                     },
@@ -124,17 +124,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/ProductDto"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
+                                    "$ref": "#/components/schemas/CreateProductResponse"
                                 }
                             }
                         }
@@ -145,7 +135,7 @@
         "/products/{id}": {
             "get": {
                 "tags": [
-                    "Kofi.API"
+                    "Products"
                 ],
                 "parameters": [
                     {
@@ -164,7 +154,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/ProductDto"
+                                    "$ref": "#/components/schemas/ProductDetail"
                                 }
                             }
                         }
@@ -176,7 +166,7 @@
             },
             "put": {
                 "tags": [
-                    "Kofi.API"
+                    "Products"
                 ],
                 "parameters": [
                     {
@@ -193,7 +183,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/ProductDto"
+                                "$ref": "#/components/schemas/UpdateProductRequest"
                             }
                         }
                     },
@@ -202,16 +192,6 @@
                 "responses": {
                     "204": {
                         "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -219,7 +199,7 @@
         "/products/{id}/price": {
             "put": {
                 "tags": [
-                    "Kofi.API"
+                    "Products"
                 ],
                 "parameters": [
                     {
@@ -236,7 +216,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/ChangePriceRequest"
+                                "$ref": "#/components/schemas/ChangeProductPriceRequest"
                             }
                         }
                     },
@@ -245,16 +225,6 @@
                 "responses": {
                     "204": {
                         "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "string"
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -262,7 +232,7 @@
         "/products/{id}/deactivate": {
             "post": {
                 "tags": [
-                    "Kofi.API"
+                    "Products"
                 ],
                 "parameters": [
                     {
@@ -276,8 +246,8 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK"
+                    "204": {
+                        "description": "No Content"
                     }
                 }
             }
@@ -285,7 +255,7 @@
         "/products/{id}/activate": {
             "post": {
                 "tags": [
-                    "Kofi.API"
+                    "Products"
                 ],
                 "parameters": [
                     {
@@ -299,8 +269,8 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK"
+                    "204": {
+                        "description": "No Content"
                     }
                 }
             }
@@ -308,7 +278,7 @@
         "/products/{id}/restock": {
             "post": {
                 "tags": [
-                    "Kofi.API"
+                    "Products"
                 ],
                 "parameters": [
                     {
@@ -325,15 +295,15 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/RestockRequest"
+                                "$ref": "#/components/schemas/RestockProductRequest"
                             }
                         }
                     },
                     "required": true
                 },
                 "responses": {
-                    "200": {
-                        "description": "OK"
+                    "204": {
+                        "description": "No Content"
                     }
                 }
             }
@@ -341,16 +311,9 @@
         "/orders": {
             "get": {
                 "tags": [
-                    "Kofi.API"
+                    "Orders"
                 ],
                 "parameters": [
-                    {
-                        "name": "includeItems",
-                        "in": "query",
-                        "schema": {
-                            "type": "boolean"
-                        }
-                    },
                     {
                         "name": "onlyPaid",
                         "in": "query",
@@ -382,7 +345,7 @@
                                 "schema": {
                                     "type": "array",
                                     "items": {
-                                        "$ref": "#/components/schemas/OrderDto"
+                                        "$ref": "#/components/schemas/OrderSummary"
                                     }
                                 }
                             }
@@ -392,7 +355,7 @@
             },
             "post": {
                 "tags": [
-                    "Kofi.API"
+                    "Orders"
                 ],
                 "requestBody": {
                     "content": {
@@ -418,10 +381,61 @@
                 }
             }
         },
+        "/orders/export": {
+            "get": {
+                "tags": [
+                    "Orders"
+                ],
+                "parameters": [
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/orders/stats/{status}": {
+            "get": {
+                "tags": [
+                    "Orders"
+                ],
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrderCountResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/orders/{id}": {
             "get": {
                 "tags": [
-                    "Kofi.API"
+                    "Orders"
                 ],
                 "parameters": [
                     {
@@ -440,7 +454,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/OrderDto"
+                                    "$ref": "#/components/schemas/OrderDetail"
                                 }
                             }
                         }
@@ -454,7 +468,7 @@
         "/orders/{id}/cancel": {
             "post": {
                 "tags": [
-                    "Kofi.API"
+                    "Orders"
                 ],
                 "parameters": [
                     {
@@ -477,7 +491,7 @@
         "/orders/{id}/pay": {
             "post": {
                 "tags": [
-                    "Kofi.API"
+                    "Orders"
                 ],
                 "parameters": [
                     {
@@ -496,17 +510,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/PaymentStartedResponse"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
+                                    "$ref": "#/components/schemas/StartOrderPaymentResponse"
                                 }
                             }
                         }
@@ -517,7 +521,7 @@
         "/orders/{id}/payment-return": {
             "get": {
                 "tags": [
-                    "Kofi.API"
+                    "Orders"
                 ],
                 "parameters": [
                     {
@@ -545,17 +549,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/PaymentReturnResponse"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
+                                    "$ref": "#/components/schemas/ConfirmOrderPaymentResponse"
                                 }
                             }
                         }
@@ -566,7 +560,7 @@
         "/orders/{id}/ship": {
             "post": {
                 "tags": [
-                    "Kofi.API"
+                    "Orders"
                 ],
                 "parameters": [
                     {
@@ -589,7 +583,7 @@
         "/orders/{id}/address": {
             "put": {
                 "tags": [
-                    "Kofi.API"
+                    "Orders"
                 ],
                 "parameters": [
                     {
@@ -606,7 +600,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/UpdateAddressRequest"
+                                "$ref": "#/components/schemas/UpdateShippingAddressRequest"
                             }
                         }
                     },
@@ -622,7 +616,7 @@
         "/orders/{id}/items": {
             "post": {
                 "tags": [
-                    "Kofi.API"
+                    "Orders"
                 ],
                 "parameters": [
                     {
@@ -639,7 +633,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/AddItemRequest"
+                                "$ref": "#/components/schemas/AddItemToOrderRequest"
                             }
                         }
                     },
@@ -648,16 +642,6 @@
                 "responses": {
                     "200": {
                         "description": "OK"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "string"
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -665,7 +649,7 @@
         "/orders/{id}/items/{itemId}": {
             "delete": {
                 "tags": [
-                    "Kofi.API"
+                    "Orders"
                 ],
                 "parameters": [
                     {
@@ -690,16 +674,6 @@
                 "responses": {
                     "204": {
                         "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "string"
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -707,7 +681,7 @@
         "/orders/{id}/resend-confirmation": {
             "post": {
                 "tags": [
-                    "Kofi.API"
+                    "Orders"
                 ],
                 "parameters": [
                     {
@@ -727,61 +701,10 @@
                 }
             }
         },
-        "/orders/export": {
-            "get": {
-                "tags": [
-                    "Kofi.API"
-                ],
-                "parameters": [
-                    {
-                        "name": "from",
-                        "in": "query",
-                        "schema": {
-                            "type": "string",
-                            "format": "date-time"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
-        "/orders/stats/{status}": {
-            "get": {
-                "tags": [
-                    "Kofi.API"
-                ],
-                "parameters": [
-                    {
-                        "name": "status",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/OrderCountResponse"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/customers": {
             "get": {
                 "tags": [
-                    "Kofi.API"
+                    "Customers"
                 ],
                 "responses": {
                     "200": {
@@ -791,7 +714,7 @@
                                 "schema": {
                                     "type": "array",
                                     "items": {
-                                        "$ref": "#/components/schemas/CustomerDto"
+                                        "$ref": "#/components/schemas/CustomerSummary"
                                     }
                                 }
                             }
@@ -801,13 +724,13 @@
             },
             "post": {
                 "tags": [
-                    "Kofi.API"
+                    "Customers"
                 ],
                 "requestBody": {
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/CustomerDto"
+                                "$ref": "#/components/schemas/RegisterCustomerCommand"
                             }
                         }
                     },
@@ -819,7 +742,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/CustomerDto"
+                                    "$ref": "#/components/schemas/RegisterCustomerResponse"
                                 }
                             }
                         }
@@ -830,7 +753,7 @@
         "/customers/{id}": {
             "get": {
                 "tags": [
-                    "Kofi.API"
+                    "Customers"
                 ],
                 "parameters": [
                     {
@@ -849,7 +772,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/CustomerDto"
+                                    "$ref": "#/components/schemas/CustomerDetail"
                                 }
                             }
                         }
@@ -863,7 +786,7 @@
         "/customers/{id}/vip": {
             "post": {
                 "tags": [
-                    "Kofi.API"
+                    "Customers"
                 ],
                 "parameters": [
                     {
@@ -877,18 +800,8 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
+                    "204": {
+                        "description": "No Content"
                     }
                 }
             }
@@ -896,7 +809,7 @@
     },
     "components": {
         "schemas": {
-            "AddItemRequest": {
+            "AddItemToOrderRequest": {
                 "type": "object",
                 "properties": {
                     "productId": {
@@ -910,6 +823,22 @@
                             "string"
                         ],
                         "format": "int32"
+                    }
+                }
+            },
+            "ConfirmOrderPaymentResponse": {
+                "required": [
+                    "orderId",
+                    "status"
+                ],
+                "type": "object",
+                "properties": {
+                    "orderId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "status": {
+                        "type": "string"
                     }
                 }
             },
@@ -978,7 +907,79 @@
                     }
                 }
             },
-            "CustomerDto": {
+            "CreateProductCommand": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "price": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "stockQuantity": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "roastedOn": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date"
+                    },
+                    "origin": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "imageUrl": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "CreateProductResponse": {
+                "required": [
+                    "id",
+                    "name"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                }
+            },
+            "CustomerDetail": {
+                "required": [
+                    "id",
+                    "name",
+                    "email",
+                    "street",
+                    "city",
+                    "zip",
+                    "registeredAt",
+                    "isVip"
+                ],
                 "type": "object",
                 "properties": {
                     "id": {
@@ -1009,18 +1010,31 @@
                     }
                 }
             },
-            "ErrorResponse": {
+            "CustomerSummary": {
                 "required": [
-                    "error"
+                    "id",
+                    "name",
+                    "email",
+                    "isVip"
                 ],
                 "type": "object",
                 "properties": {
-                    "error": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
                         "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "isVip": {
+                        "type": "boolean"
                     }
                 }
             },
-            "ChangePriceRequest": {
+            "ChangeProductPriceRequest": {
                 "type": "object",
                 "properties": {
                     "price": {
@@ -1080,7 +1094,21 @@
                     }
                 }
             },
-            "OrderDto": {
+            "OrderDetail": {
+                "required": [
+                    "id",
+                    "customerName",
+                    "customerEmail",
+                    "street",
+                    "city",
+                    "zip",
+                    "status",
+                    "createdAt",
+                    "itemsTotal",
+                    "shipping",
+                    "total",
+                    "items"
+                ],
                 "type": "object",
                 "properties": {
                     "id": {
@@ -1136,12 +1164,19 @@
                     "items": {
                         "type": "array",
                         "items": {
-                            "$ref": "#/components/schemas/OrderItemDto"
+                            "$ref": "#/components/schemas/OrderDetailItem"
                         }
                     }
                 }
             },
-            "OrderItemDto": {
+            "OrderDetailItem": {
+                "required": [
+                    "id",
+                    "productId",
+                    "productName",
+                    "unitPrice",
+                    "quantity"
+                ],
                 "type": "object",
                 "properties": {
                     "id": {
@@ -1173,13 +1208,53 @@
                     }
                 }
             },
-            "PagedResultOfProductDto": {
+            "OrderSummary": {
+                "required": [
+                    "id",
+                    "customerName",
+                    "status",
+                    "createdAt",
+                    "total"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "customerName": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "total": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    }
+                }
+            },
+            "PagedResultOfProductSummary": {
+                "required": [
+                    "items",
+                    "page",
+                    "pageSize",
+                    "totalCount"
+                ],
                 "type": "object",
                 "properties": {
                     "items": {
                         "type": "array",
                         "items": {
-                            "$ref": "#/components/schemas/ProductDto"
+                            "$ref": "#/components/schemas/ProductSummary"
                         }
                     },
                     "page": {
@@ -1208,39 +1283,15 @@
                     }
                 }
             },
-            "PaymentReturnResponse": {
+            "ProductDetail": {
                 "required": [
-                    "orderId",
-                    "status"
+                    "id",
+                    "name",
+                    "description",
+                    "price",
+                    "stockQuantity",
+                    "isActive"
                 ],
-                "type": "object",
-                "properties": {
-                    "orderId": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "status": {
-                        "type": "string"
-                    }
-                }
-            },
-            "PaymentStartedResponse": {
-                "required": [
-                    "paymentId",
-                    "redirectUrl"
-                ],
-                "type": "object",
-                "properties": {
-                    "paymentId": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "redirectUrl": {
-                        "type": "string"
-                    }
-                }
-            },
-            "ProductDto": {
                 "type": "object",
                 "properties": {
                     "id": {
@@ -1272,11 +1323,62 @@
                     "isActive": {
                         "type": "boolean"
                     },
+                    "roastedOn": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date"
+                    },
+                    "origin": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
                     "imageUrl": {
                         "type": [
                             "null",
                             "string"
                         ]
+                    }
+                }
+            },
+            "ProductSummary": {
+                "required": [
+                    "id",
+                    "name",
+                    "price",
+                    "stockQuantity",
+                    "isActive"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "price": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "stockQuantity": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "isActive": {
+                        "type": "boolean"
                     },
                     "roastedOn": {
                         "type": [
@@ -1290,10 +1392,52 @@
                             "null",
                             "string"
                         ]
+                    },
+                    "imageUrl": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 }
             },
-            "RestockRequest": {
+            "RegisterCustomerCommand": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "street": {
+                        "type": "string"
+                    },
+                    "city": {
+                        "type": "string"
+                    },
+                    "zip": {
+                        "type": "string"
+                    }
+                }
+            },
+            "RegisterCustomerResponse": {
+                "required": [
+                    "id",
+                    "email"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "email": {
+                        "type": "string"
+                    }
+                }
+            },
+            "RestockProductRequest": {
                 "type": "object",
                 "properties": {
                     "quantity": {
@@ -1306,7 +1450,53 @@
                     }
                 }
             },
-            "UpdateAddressRequest": {
+            "StartOrderPaymentResponse": {
+                "required": [
+                    "paymentId",
+                    "redirectUrl"
+                ],
+                "type": "object",
+                "properties": {
+                    "paymentId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "redirectUrl": {
+                        "type": "string"
+                    }
+                }
+            },
+            "UpdateProductRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "roastedOn": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date"
+                    },
+                    "origin": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "imageUrl": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "UpdateShippingAddressRequest": {
                 "type": "object",
                 "properties": {
                     "street": {
@@ -1337,6 +1527,15 @@
     "tags": [
         {
             "name": "Kofi.API"
+        },
+        {
+            "name": "Products"
+        },
+        {
+            "name": "Orders"
+        },
+        {
+            "name": "Customers"
         }
     ]
 }

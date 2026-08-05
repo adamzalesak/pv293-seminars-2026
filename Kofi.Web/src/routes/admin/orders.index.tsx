@@ -20,20 +20,25 @@ import { formatDateTime, formatMoney } from '@/lib/format'
 export const Route = createFileRoute('/admin/orders/')({
   validateSearch: z.object({
     onlyPaid: z.boolean().optional().catch(undefined),
-    includeItems: z.boolean().optional().catch(undefined),
     from: z.string().optional().catch(undefined),
     sortBy: z.enum(['date', 'total', 'customer']).optional().catch(undefined),
   }),
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) => context.queryClient.prefetchQuery(getGetOrdersQueryOptions(deps)),
+  loader: ({ context, deps }) => context.queryClient.prefetchQuery(getGetOrdersQueryOptions(params(deps))),
   component: AdminOrders,
+})
+
+const params = (s: { onlyPaid?: boolean; from?: string; sortBy?: string }) => ({
+  onlyPaid: s.onlyPaid,
+  from: s.from,
+  sortBy: s.sortBy,
 })
 
 function AdminOrders() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const set = (patch: Partial<typeof search>) => navigate({ search: (s) => ({ ...s, ...patch }) })
-  const orders = useGetOrders(search)
+  const orders = useGetOrders(params(search))
 
   const exportCsv = useMutation({
     // The export is plain text, which the API does not describe; the fetcher hands it back as a string.
@@ -86,10 +91,6 @@ function AdminOrders() {
           <Switch id="only-paid" checked={!!search.onlyPaid} onCheckedChange={(v) => set({ onlyPaid: v || undefined })} />
           <Label htmlFor="only-paid">Paid and shipped only</Label>
         </div>
-        <div className="flex h-9 items-center gap-2">
-          <Switch id="items" checked={!!search.includeItems} onCheckedChange={(v) => set({ includeItems: v || undefined })} />
-          <Label htmlFor="items">Show items</Label>
-        </div>
       </div>
 
       {orders.isError ? (
@@ -104,7 +105,6 @@ function AdminOrders() {
                 <TableHead>Order</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Placed</TableHead>
-                {search.includeItems && <TableHead>Items</TableHead>}
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Total</TableHead>
               </TableRow>
@@ -117,16 +117,8 @@ function AdminOrders() {
                       #{o.id!.slice(0, 8)}
                     </Link>
                   </TableCell>
-                  <TableCell>
-                    <div>{o.customerName}</div>
-                    <div className="text-xs text-muted-foreground">{o.customerEmail}</div>
-                  </TableCell>
+                  <TableCell>{o.customerName}</TableCell>
                   <TableCell className="text-muted-foreground">{formatDateTime(o.createdAt!)}</TableCell>
-                  {search.includeItems && (
-                    <TableCell className="max-w-64 text-sm whitespace-normal">
-                      {o.items?.map((i) => `${i.quantity}× ${i.productName}`).join(', ')}
-                    </TableCell>
-                  )}
                   <TableCell>
                     <OrderStatus status={o.status} />
                   </TableCell>
@@ -135,7 +127,7 @@ function AdminOrders() {
               ))}
               {orders.data.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
                     No orders match these filters.
                   </TableCell>
                 </TableRow>

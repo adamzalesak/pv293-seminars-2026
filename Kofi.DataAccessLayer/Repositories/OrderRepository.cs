@@ -32,10 +32,9 @@ public class OrderRepository(AppDbContext db) : IOrderRepository
         db.Orders.Add(order);
     }
 
-    public async Task Update(Order order)
+    public void Update(Order order)
     {
         db.Orders.Update(order);
-        await db.SaveChangesAsync();
     }
 
     public async Task<int> CountByStatus(OrderStatus status)

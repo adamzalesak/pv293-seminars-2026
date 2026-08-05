@@ -5,7 +5,8 @@ namespace Kofi.DataAccessLayer.Repositories;
 public interface ICustomerRepository
 {
     Task<Customer?> GetById(Guid id);
+    Task<bool> EmailTaken(string email);
     Task<List<Customer>> GetAll();
-    Task Add(Customer customer);
-    Task Update(Customer customer);
+    void Add(Customer customer);
+    void Update(Customer customer);
 }

@@ -24,12 +24,15 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
-  AddItemRequest,
-  ChangePriceRequest,
+  AddItemToOrderRequest,
+  ChangeProductPriceRequest,
+  ConfirmOrderPaymentResponse,
   CreateOrderCommand,
   CreateOrderResponse,
-  CustomerDto,
-  ErrorResponse,
+  CreateProductCommand,
+  CreateProductResponse,
+  CustomerDetail,
+  CustomerSummary,
   GetOrdersExportParams,
   GetOrdersIdPaymentReturnParams,
   GetOrdersParams,
@@ -37,13 +40,16 @@ import type {
   LoginRequest,
   LoginResponse,
   OrderCountResponse,
-  OrderDto,
-  PagedResultOfProductDto,
-  PaymentReturnResponse,
-  PaymentStartedResponse,
-  ProductDto,
-  RestockRequest,
-  UpdateAddressRequest
+  OrderDetail,
+  OrderSummary,
+  PagedResultOfProductSummary,
+  ProductDetail,
+  RegisterCustomerCommand,
+  RegisterCustomerResponse,
+  RestockProductRequest,
+  StartOrderPaymentResponse,
+  UpdateProductRequest,
+  UpdateShippingAddressRequest
 } from './model';
 
 import { apiFetch } from '../fetcher';
@@ -166,9 +172,9 @@ export const getGetProductsUrl = (params?: GetProductsParams,) => {
   return stringifiedParams.length > 0 ? `/products?${stringifiedParams}` : `/products`
 }
 
-export const getProducts = async (params?: GetProductsParams, options?: Parameters<typeof apiFetch>[1]): Promise<PagedResultOfProductDto> => {
+export const getProducts = async (params?: GetProductsParams, options?: Parameters<typeof apiFetch>[1]): Promise<PagedResultOfProductSummary> => {
 
-  return apiFetch<PagedResultOfProductDto>(getGetProductsUrl(params),
+  return apiFetch<PagedResultOfProductSummary>(getGetProductsUrl(params),
   {
     ...options,
     method: 'GET'
@@ -261,7 +267,7 @@ export const getPostProductsUrl = () => {
   return `/products`
 }
 
-export const postProducts = async (productDto: ProductDto, options?: Parameters<typeof apiFetch>[1]): Promise<ProductDto> => {
+export const postProducts = async (createProductCommand: CreateProductCommand, options?: Parameters<typeof apiFetch>[1]): Promise<CreateProductResponse> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -277,12 +283,12 @@ export const postProducts = async (productDto: ProductDto, options?: Parameters<
     }
     return headers;
   };
-return apiFetch<ProductDto>(getPostProductsUrl(),
+return apiFetch<CreateProductResponse>(getPostProductsUrl(),
   {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(productDto)
+    body: JSON.stringify(createProductCommand)
   }
 );}
 
@@ -292,7 +298,7 @@ return apiFetch<ProductDto>(getPostProductsUrl(),
 
 export const getPostProductsMutationKey = () => ['postProducts'] as const;
 
-export const getPostProductsMutationOptions = <TError = ErrorType<ErrorResponse>,
+export const getPostProductsMutationOptions = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProducts>>, TError,PostProductsMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof postProducts>>, TError,PostProductsMutationVariables, TContext> => {
 
@@ -320,11 +326,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PostProductsMutationResult = NonNullable<Awaited<ReturnType<typeof postProducts>>>
-    export type PostProductsMutationBody = BodyType<ProductDto>
-    export type PostProductsMutationError = ErrorType<ErrorResponse>
-    export type PostProductsMutationVariables = {data: BodyType<ProductDto>}
+    export type PostProductsMutationBody = BodyType<CreateProductCommand>
+    export type PostProductsMutationError = ErrorType<unknown>
+    export type PostProductsMutationVariables = {data: BodyType<CreateProductCommand>}
 
-    export const usePostProducts = <TError = ErrorType<ErrorResponse>,
+    export const usePostProducts = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProducts>>, TError,PostProductsMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postProducts>>,
@@ -343,9 +349,9 @@ export const getGetProductsIdUrl = (id: string,) => {
   return `/products/${id}`
 }
 
-export const getProductsId = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<ProductDto> => {
+export const getProductsId = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<ProductDetail> => {
 
-  return apiFetch<ProductDto>(getGetProductsIdUrl(id),
+  return apiFetch<ProductDetail>(getGetProductsIdUrl(id),
   {
     ...options,
     method: 'GET'
@@ -439,7 +445,7 @@ export const getPutProductsIdUrl = (id: string,) => {
 }
 
 export const putProductsId = async (id: string,
-    productDto: ProductDto, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+    updateProductRequest: UpdateProductRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -460,7 +466,7 @@ return apiFetch<void>(getPutProductsIdUrl(id),
     ...options,
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(productDto)
+    body: JSON.stringify(updateProductRequest)
   }
 );}
 
@@ -470,7 +476,7 @@ return apiFetch<void>(getPutProductsIdUrl(id),
 
 export const getPutProductsIdMutationKey = () => ['putProductsId'] as const;
 
-export const getPutProductsIdMutationOptions = <TError = ErrorType<ErrorResponse>,
+export const getPutProductsIdMutationOptions = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putProductsId>>, TError,PutProductsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof putProductsId>>, TError,PutProductsIdMutationVariables, TContext> => {
 
@@ -498,11 +504,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PutProductsIdMutationResult = NonNullable<Awaited<ReturnType<typeof putProductsId>>>
-    export type PutProductsIdMutationBody = BodyType<ProductDto>
-    export type PutProductsIdMutationError = ErrorType<ErrorResponse>
-    export type PutProductsIdMutationVariables = {id: string;data: BodyType<ProductDto>}
+    export type PutProductsIdMutationBody = BodyType<UpdateProductRequest>
+    export type PutProductsIdMutationError = ErrorType<unknown>
+    export type PutProductsIdMutationVariables = {id: string;data: BodyType<UpdateProductRequest>}
 
-    export const usePutProductsId = <TError = ErrorType<ErrorResponse>,
+    export const usePutProductsId = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putProductsId>>, TError,PutProductsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof putProductsId>>,
@@ -522,7 +528,7 @@ export const getPutProductsIdPriceUrl = (id: string,) => {
 }
 
 export const putProductsIdPrice = async (id: string,
-    changePriceRequest: ChangePriceRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+    changeProductPriceRequest: ChangeProductPriceRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -543,7 +549,7 @@ return apiFetch<void>(getPutProductsIdPriceUrl(id),
     ...options,
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(changePriceRequest)
+    body: JSON.stringify(changeProductPriceRequest)
   }
 );}
 
@@ -553,7 +559,7 @@ return apiFetch<void>(getPutProductsIdPriceUrl(id),
 
 export const getPutProductsIdPriceMutationKey = () => ['putProductsIdPrice'] as const;
 
-export const getPutProductsIdPriceMutationOptions = <TError = ErrorType<string>,
+export const getPutProductsIdPriceMutationOptions = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putProductsIdPrice>>, TError,PutProductsIdPriceMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof putProductsIdPrice>>, TError,PutProductsIdPriceMutationVariables, TContext> => {
 
@@ -581,11 +587,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PutProductsIdPriceMutationResult = NonNullable<Awaited<ReturnType<typeof putProductsIdPrice>>>
-    export type PutProductsIdPriceMutationBody = BodyType<ChangePriceRequest>
-    export type PutProductsIdPriceMutationError = ErrorType<string>
-    export type PutProductsIdPriceMutationVariables = {id: string;data: BodyType<ChangePriceRequest>}
+    export type PutProductsIdPriceMutationBody = BodyType<ChangeProductPriceRequest>
+    export type PutProductsIdPriceMutationError = ErrorType<unknown>
+    export type PutProductsIdPriceMutationVariables = {id: string;data: BodyType<ChangeProductPriceRequest>}
 
-    export const usePutProductsIdPrice = <TError = ErrorType<string>,
+    export const usePutProductsIdPrice = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putProductsIdPrice>>, TError,PutProductsIdPriceMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof putProductsIdPrice>>,
@@ -741,7 +747,7 @@ export const getPostProductsIdRestockUrl = (id: string,) => {
 }
 
 export const postProductsIdRestock = async (id: string,
-    restockRequest: RestockRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+    restockProductRequest: RestockProductRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -762,7 +768,7 @@ return apiFetch<void>(getPostProductsIdRestockUrl(id),
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(restockRequest)
+    body: JSON.stringify(restockProductRequest)
   }
 );}
 
@@ -800,9 +806,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PostProductsIdRestockMutationResult = NonNullable<Awaited<ReturnType<typeof postProductsIdRestock>>>
-    export type PostProductsIdRestockMutationBody = BodyType<RestockRequest>
+    export type PostProductsIdRestockMutationBody = BodyType<RestockProductRequest>
     export type PostProductsIdRestockMutationError = ErrorType<unknown>
-    export type PostProductsIdRestockMutationVariables = {id: string;data: BodyType<RestockRequest>}
+    export type PostProductsIdRestockMutationVariables = {id: string;data: BodyType<RestockProductRequest>}
 
     export const usePostProductsIdRestock = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdRestock>>, TError,PostProductsIdRestockMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
@@ -830,9 +836,9 @@ export const getGetOrdersUrl = (params?: GetOrdersParams,) => {
   return stringifiedParams.length > 0 ? `/orders?${stringifiedParams}` : `/orders`
 }
 
-export const getOrders = async (params?: GetOrdersParams, options?: Parameters<typeof apiFetch>[1]): Promise<OrderDto[]> => {
+export const getOrders = async (params?: GetOrdersParams, options?: Parameters<typeof apiFetch>[1]): Promise<OrderSummary[]> => {
 
-  return apiFetch<OrderDto[]>(getGetOrdersUrl(params),
+  return apiFetch<OrderSummary[]>(getGetOrdersUrl(params),
   {
     ...options,
     method: 'GET'
@@ -997,719 +1003,6 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getPostOrdersMutationOptions(options), queryClient);
-    }
-
-export const getGetOrdersIdUrl = (id: string,) => {
-
-
-
-
-  return `/orders/${id}`
-}
-
-export const getOrdersId = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<OrderDto> => {
-
-  return apiFetch<OrderDto>(getGetOrdersIdUrl(id),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getGetOrdersIdQueryKey = (id: string,) => {
-    return [
-    `/orders/${id}`
-    ] as const;
-    }
-
-
-export const getGetOrdersIdQueryOptions = <TData = Awaited<ReturnType<typeof getOrdersId>>, TError = ErrorType<void>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersId>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetOrdersIdQueryKey(id);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrdersId>>> = ({ signal }) => getOrdersId(id, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOrdersId>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
-}
-
-export type GetOrdersIdQueryResult = NonNullable<Awaited<ReturnType<typeof getOrdersId>>>
-export type GetOrdersIdQueryError = ErrorType<void>
-
-
-export function useGetOrdersId<TData = Awaited<ReturnType<typeof getOrdersId>>, TError = ErrorType<void>>(
- id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersId>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getOrdersId>>,
-          TError,
-          Awaited<ReturnType<typeof getOrdersId>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetOrdersId<TData = Awaited<ReturnType<typeof getOrdersId>>, TError = ErrorType<void>>(
- id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersId>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getOrdersId>>,
-          TError,
-          Awaited<ReturnType<typeof getOrdersId>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetOrdersId<TData = Awaited<ReturnType<typeof getOrdersId>>, TError = ErrorType<void>>(
- id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersId>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-
-export function useGetOrdersId<TData = Awaited<ReturnType<typeof getOrdersId>>, TError = ErrorType<void>>(
- id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersId>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-
-  const queryOptions = getGetOrdersIdQueryOptions(id,options)
-
-  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
-
-export const getPostOrdersIdCancelUrl = (id: string,) => {
-
-
-
-
-  return `/orders/${id}/cancel`
-}
-
-export const postOrdersIdCancel = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
-
-  return apiFetch<void>(getPostOrdersIdCancelUrl(id),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
-
-
-
-export const getPostOrdersIdCancelMutationKey = () => ['postOrdersIdCancel'] as const;
-
-export const getPostOrdersIdCancelMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdCancel>>, TError,PostOrdersIdCancelMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdCancel>>, TError,PostOrdersIdCancelMutationVariables, TContext> => {
-
-const mutationKey = getPostOrdersIdCancelMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postOrdersIdCancel>>, PostOrdersIdCancelMutationVariables> = (props) => {
-          const {id} = props ?? {};
-
-          return  postOrdersIdCancel(id,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostOrdersIdCancelMutationResult = NonNullable<Awaited<ReturnType<typeof postOrdersIdCancel>>>
-
-    export type PostOrdersIdCancelMutationError = ErrorType<unknown>
-    export type PostOrdersIdCancelMutationVariables = {id: string}
-
-    export const usePostOrdersIdCancel = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdCancel>>, TError,PostOrdersIdCancelMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postOrdersIdCancel>>,
-        TError,
-        PostOrdersIdCancelMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPostOrdersIdCancelMutationOptions(options), queryClient);
-    }
-
-export const getPostOrdersIdPayUrl = (id: string,) => {
-
-
-
-
-  return `/orders/${id}/pay`
-}
-
-export const postOrdersIdPay = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<PaymentStartedResponse> => {
-
-  return apiFetch<PaymentStartedResponse>(getPostOrdersIdPayUrl(id),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
-
-
-
-export const getPostOrdersIdPayMutationKey = () => ['postOrdersIdPay'] as const;
-
-export const getPostOrdersIdPayMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdPay>>, TError,PostOrdersIdPayMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdPay>>, TError,PostOrdersIdPayMutationVariables, TContext> => {
-
-const mutationKey = getPostOrdersIdPayMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postOrdersIdPay>>, PostOrdersIdPayMutationVariables> = (props) => {
-          const {id} = props ?? {};
-
-          return  postOrdersIdPay(id,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostOrdersIdPayMutationResult = NonNullable<Awaited<ReturnType<typeof postOrdersIdPay>>>
-
-    export type PostOrdersIdPayMutationError = ErrorType<ErrorResponse>
-    export type PostOrdersIdPayMutationVariables = {id: string}
-
-    export const usePostOrdersIdPay = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdPay>>, TError,PostOrdersIdPayMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postOrdersIdPay>>,
-        TError,
-        PostOrdersIdPayMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPostOrdersIdPayMutationOptions(options), queryClient);
-    }
-
-export const getGetOrdersIdPaymentReturnUrl = (id: string,
-    params: GetOrdersIdPaymentReturnParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/orders/${id}/payment-return?${stringifiedParams}` : `/orders/${id}/payment-return`
-}
-
-export const getOrdersIdPaymentReturn = async (id: string,
-    params: GetOrdersIdPaymentReturnParams, options?: Parameters<typeof apiFetch>[1]): Promise<PaymentReturnResponse> => {
-
-  return apiFetch<PaymentReturnResponse>(getGetOrdersIdPaymentReturnUrl(id,params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getGetOrdersIdPaymentReturnQueryKey = (id: string,
-    params?: GetOrdersIdPaymentReturnParams,) => {
-    return [
-    `/orders/${id}/payment-return`, ...(params ? [params] : [])
-    ] as const;
-    }
-
-
-export const getGetOrdersIdPaymentReturnQueryOptions = <TData = Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError = ErrorType<ErrorResponse>>(id: string,
-    params: GetOrdersIdPaymentReturnParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetOrdersIdPaymentReturnQueryKey(id,params);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>> = ({ signal }) => getOrdersIdPaymentReturn(id,params, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
-}
-
-export type GetOrdersIdPaymentReturnQueryResult = NonNullable<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>>
-export type GetOrdersIdPaymentReturnQueryError = ErrorType<ErrorResponse>
-
-
-export function useGetOrdersIdPaymentReturn<TData = Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError = ErrorType<ErrorResponse>>(
- id: string,
-    params: GetOrdersIdPaymentReturnParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>,
-          TError,
-          Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetOrdersIdPaymentReturn<TData = Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError = ErrorType<ErrorResponse>>(
- id: string,
-    params: GetOrdersIdPaymentReturnParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>,
-          TError,
-          Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetOrdersIdPaymentReturn<TData = Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError = ErrorType<ErrorResponse>>(
- id: string,
-    params: GetOrdersIdPaymentReturnParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-
-export function useGetOrdersIdPaymentReturn<TData = Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError = ErrorType<ErrorResponse>>(
- id: string,
-    params: GetOrdersIdPaymentReturnParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-
-  const queryOptions = getGetOrdersIdPaymentReturnQueryOptions(id,params,options)
-
-  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
-
-export const getPostOrdersIdShipUrl = (id: string,) => {
-
-
-
-
-  return `/orders/${id}/ship`
-}
-
-export const postOrdersIdShip = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
-
-  return apiFetch<void>(getPostOrdersIdShipUrl(id),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
-
-
-
-export const getPostOrdersIdShipMutationKey = () => ['postOrdersIdShip'] as const;
-
-export const getPostOrdersIdShipMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdShip>>, TError,PostOrdersIdShipMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdShip>>, TError,PostOrdersIdShipMutationVariables, TContext> => {
-
-const mutationKey = getPostOrdersIdShipMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postOrdersIdShip>>, PostOrdersIdShipMutationVariables> = (props) => {
-          const {id} = props ?? {};
-
-          return  postOrdersIdShip(id,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostOrdersIdShipMutationResult = NonNullable<Awaited<ReturnType<typeof postOrdersIdShip>>>
-
-    export type PostOrdersIdShipMutationError = ErrorType<unknown>
-    export type PostOrdersIdShipMutationVariables = {id: string}
-
-    export const usePostOrdersIdShip = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdShip>>, TError,PostOrdersIdShipMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postOrdersIdShip>>,
-        TError,
-        PostOrdersIdShipMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPostOrdersIdShipMutationOptions(options), queryClient);
-    }
-
-export const getPutOrdersIdAddressUrl = (id: string,) => {
-
-
-
-
-  return `/orders/${id}/address`
-}
-
-export const putOrdersIdAddress = async (id: string,
-    updateAddressRequest: UpdateAddressRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-return apiFetch<void>(getPutOrdersIdAddressUrl(id),
-  {
-    ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(updateAddressRequest)
-  }
-);}
-
-
-
-
-
-export const getPutOrdersIdAddressMutationKey = () => ['putOrdersIdAddress'] as const;
-
-export const getPutOrdersIdAddressMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putOrdersIdAddress>>, TError,PutOrdersIdAddressMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof putOrdersIdAddress>>, TError,PutOrdersIdAddressMutationVariables, TContext> => {
-
-const mutationKey = getPutOrdersIdAddressMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putOrdersIdAddress>>, PutOrdersIdAddressMutationVariables> = (props) => {
-          const {id,data} = props ?? {};
-
-          return  putOrdersIdAddress(id,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PutOrdersIdAddressMutationResult = NonNullable<Awaited<ReturnType<typeof putOrdersIdAddress>>>
-    export type PutOrdersIdAddressMutationBody = BodyType<UpdateAddressRequest>
-    export type PutOrdersIdAddressMutationError = ErrorType<unknown>
-    export type PutOrdersIdAddressMutationVariables = {id: string;data: BodyType<UpdateAddressRequest>}
-
-    export const usePutOrdersIdAddress = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putOrdersIdAddress>>, TError,PutOrdersIdAddressMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof putOrdersIdAddress>>,
-        TError,
-        PutOrdersIdAddressMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPutOrdersIdAddressMutationOptions(options), queryClient);
-    }
-
-export const getPostOrdersIdItemsUrl = (id: string,) => {
-
-
-
-
-  return `/orders/${id}/items`
-}
-
-export const postOrdersIdItems = async (id: string,
-    addItemRequest: AddItemRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-return apiFetch<void>(getPostOrdersIdItemsUrl(id),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(addItemRequest)
-  }
-);}
-
-
-
-
-
-export const getPostOrdersIdItemsMutationKey = () => ['postOrdersIdItems'] as const;
-
-export const getPostOrdersIdItemsMutationOptions = <TError = ErrorType<string>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdItems>>, TError,PostOrdersIdItemsMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdItems>>, TError,PostOrdersIdItemsMutationVariables, TContext> => {
-
-const mutationKey = getPostOrdersIdItemsMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postOrdersIdItems>>, PostOrdersIdItemsMutationVariables> = (props) => {
-          const {id,data} = props ?? {};
-
-          return  postOrdersIdItems(id,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostOrdersIdItemsMutationResult = NonNullable<Awaited<ReturnType<typeof postOrdersIdItems>>>
-    export type PostOrdersIdItemsMutationBody = BodyType<AddItemRequest>
-    export type PostOrdersIdItemsMutationError = ErrorType<string>
-    export type PostOrdersIdItemsMutationVariables = {id: string;data: BodyType<AddItemRequest>}
-
-    export const usePostOrdersIdItems = <TError = ErrorType<string>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdItems>>, TError,PostOrdersIdItemsMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postOrdersIdItems>>,
-        TError,
-        PostOrdersIdItemsMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPostOrdersIdItemsMutationOptions(options), queryClient);
-    }
-
-export const getDeleteOrdersIdItemsItemIdUrl = (id: string,
-    itemId: string,) => {
-
-
-
-
-  return `/orders/${id}/items/${itemId}`
-}
-
-export const deleteOrdersIdItemsItemId = async (id: string,
-    itemId: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
-
-  return apiFetch<void>(getDeleteOrdersIdItemsItemIdUrl(id,itemId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
-
-
-
-
-
-export const getDeleteOrdersIdItemsItemIdMutationKey = () => ['deleteOrdersIdItemsItemId'] as const;
-
-export const getDeleteOrdersIdItemsItemIdMutationOptions = <TError = ErrorType<string>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOrdersIdItemsItemId>>, TError,DeleteOrdersIdItemsItemIdMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteOrdersIdItemsItemId>>, TError,DeleteOrdersIdItemsItemIdMutationVariables, TContext> => {
-
-const mutationKey = getDeleteOrdersIdItemsItemIdMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteOrdersIdItemsItemId>>, DeleteOrdersIdItemsItemIdMutationVariables> = (props) => {
-          const {id,itemId} = props ?? {};
-
-          return  deleteOrdersIdItemsItemId(id,itemId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteOrdersIdItemsItemIdMutationResult = NonNullable<Awaited<ReturnType<typeof deleteOrdersIdItemsItemId>>>
-
-    export type DeleteOrdersIdItemsItemIdMutationError = ErrorType<string>
-    export type DeleteOrdersIdItemsItemIdMutationVariables = {id: string;itemId: string}
-
-    export const useDeleteOrdersIdItemsItemId = <TError = ErrorType<string>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOrdersIdItemsItemId>>, TError,DeleteOrdersIdItemsItemIdMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof deleteOrdersIdItemsItemId>>,
-        TError,
-        DeleteOrdersIdItemsItemIdMutationVariables,
-        TContext
-      > => {
-      return useMutation(getDeleteOrdersIdItemsItemIdMutationOptions(options), queryClient);
-    }
-
-export const getPostOrdersIdResendConfirmationUrl = (id: string,) => {
-
-
-
-
-  return `/orders/${id}/resend-confirmation`
-}
-
-export const postOrdersIdResendConfirmation = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
-
-  return apiFetch<void>(getPostOrdersIdResendConfirmationUrl(id),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
-
-
-
-export const getPostOrdersIdResendConfirmationMutationKey = () => ['postOrdersIdResendConfirmation'] as const;
-
-export const getPostOrdersIdResendConfirmationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdResendConfirmation>>, TError,PostOrdersIdResendConfirmationMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdResendConfirmation>>, TError,PostOrdersIdResendConfirmationMutationVariables, TContext> => {
-
-const mutationKey = getPostOrdersIdResendConfirmationMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postOrdersIdResendConfirmation>>, PostOrdersIdResendConfirmationMutationVariables> = (props) => {
-          const {id} = props ?? {};
-
-          return  postOrdersIdResendConfirmation(id,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostOrdersIdResendConfirmationMutationResult = NonNullable<Awaited<ReturnType<typeof postOrdersIdResendConfirmation>>>
-
-    export type PostOrdersIdResendConfirmationMutationError = ErrorType<unknown>
-    export type PostOrdersIdResendConfirmationMutationVariables = {id: string}
-
-    export const usePostOrdersIdResendConfirmation = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdResendConfirmation>>, TError,PostOrdersIdResendConfirmationMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postOrdersIdResendConfirmation>>,
-        TError,
-        PostOrdersIdResendConfirmationMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPostOrdersIdResendConfirmationMutationOptions(options), queryClient);
     }
 
 export const getGetOrdersExportUrl = (params?: GetOrdersExportParams,) => {
@@ -1909,6 +1202,719 @@ export function useGetOrdersStatsStatus<TData = Awaited<ReturnType<typeof getOrd
 
 
 
+export const getGetOrdersIdUrl = (id: string,) => {
+
+
+
+
+  return `/orders/${id}`
+}
+
+export const getOrdersId = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<OrderDetail> => {
+
+  return apiFetch<OrderDetail>(getGetOrdersIdUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOrdersIdQueryKey = (id: string,) => {
+    return [
+    `/orders/${id}`
+    ] as const;
+    }
+
+
+export const getGetOrdersIdQueryOptions = <TData = Awaited<ReturnType<typeof getOrdersId>>, TError = ErrorType<void>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersId>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOrdersIdQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrdersId>>> = ({ signal }) => getOrdersId(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOrdersId>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetOrdersIdQueryResult = NonNullable<Awaited<ReturnType<typeof getOrdersId>>>
+export type GetOrdersIdQueryError = ErrorType<void>
+
+
+export function useGetOrdersId<TData = Awaited<ReturnType<typeof getOrdersId>>, TError = ErrorType<void>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersId>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOrdersId>>,
+          TError,
+          Awaited<ReturnType<typeof getOrdersId>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOrdersId<TData = Awaited<ReturnType<typeof getOrdersId>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersId>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOrdersId>>,
+          TError,
+          Awaited<ReturnType<typeof getOrdersId>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOrdersId<TData = Awaited<ReturnType<typeof getOrdersId>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersId>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetOrdersId<TData = Awaited<ReturnType<typeof getOrdersId>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersId>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetOrdersIdQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPostOrdersIdCancelUrl = (id: string,) => {
+
+
+
+
+  return `/orders/${id}/cancel`
+}
+
+export const postOrdersIdCancel = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+  return apiFetch<void>(getPostOrdersIdCancelUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPostOrdersIdCancelMutationKey = () => ['postOrdersIdCancel'] as const;
+
+export const getPostOrdersIdCancelMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdCancel>>, TError,PostOrdersIdCancelMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdCancel>>, TError,PostOrdersIdCancelMutationVariables, TContext> => {
+
+const mutationKey = getPostOrdersIdCancelMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postOrdersIdCancel>>, PostOrdersIdCancelMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  postOrdersIdCancel(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostOrdersIdCancelMutationResult = NonNullable<Awaited<ReturnType<typeof postOrdersIdCancel>>>
+
+    export type PostOrdersIdCancelMutationError = ErrorType<unknown>
+    export type PostOrdersIdCancelMutationVariables = {id: string}
+
+    export const usePostOrdersIdCancel = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdCancel>>, TError,PostOrdersIdCancelMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postOrdersIdCancel>>,
+        TError,
+        PostOrdersIdCancelMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPostOrdersIdCancelMutationOptions(options), queryClient);
+    }
+
+export const getPostOrdersIdPayUrl = (id: string,) => {
+
+
+
+
+  return `/orders/${id}/pay`
+}
+
+export const postOrdersIdPay = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<StartOrderPaymentResponse> => {
+
+  return apiFetch<StartOrderPaymentResponse>(getPostOrdersIdPayUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPostOrdersIdPayMutationKey = () => ['postOrdersIdPay'] as const;
+
+export const getPostOrdersIdPayMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdPay>>, TError,PostOrdersIdPayMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdPay>>, TError,PostOrdersIdPayMutationVariables, TContext> => {
+
+const mutationKey = getPostOrdersIdPayMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postOrdersIdPay>>, PostOrdersIdPayMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  postOrdersIdPay(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostOrdersIdPayMutationResult = NonNullable<Awaited<ReturnType<typeof postOrdersIdPay>>>
+
+    export type PostOrdersIdPayMutationError = ErrorType<unknown>
+    export type PostOrdersIdPayMutationVariables = {id: string}
+
+    export const usePostOrdersIdPay = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdPay>>, TError,PostOrdersIdPayMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postOrdersIdPay>>,
+        TError,
+        PostOrdersIdPayMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPostOrdersIdPayMutationOptions(options), queryClient);
+    }
+
+export const getGetOrdersIdPaymentReturnUrl = (id: string,
+    params: GetOrdersIdPaymentReturnParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/orders/${id}/payment-return?${stringifiedParams}` : `/orders/${id}/payment-return`
+}
+
+export const getOrdersIdPaymentReturn = async (id: string,
+    params: GetOrdersIdPaymentReturnParams, options?: Parameters<typeof apiFetch>[1]): Promise<ConfirmOrderPaymentResponse> => {
+
+  return apiFetch<ConfirmOrderPaymentResponse>(getGetOrdersIdPaymentReturnUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOrdersIdPaymentReturnQueryKey = (id: string,
+    params?: GetOrdersIdPaymentReturnParams,) => {
+    return [
+    `/orders/${id}/payment-return`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetOrdersIdPaymentReturnQueryOptions = <TData = Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError = ErrorType<unknown>>(id: string,
+    params: GetOrdersIdPaymentReturnParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOrdersIdPaymentReturnQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>> = ({ signal }) => getOrdersIdPaymentReturn(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetOrdersIdPaymentReturnQueryResult = NonNullable<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>>
+export type GetOrdersIdPaymentReturnQueryError = ErrorType<unknown>
+
+
+export function useGetOrdersIdPaymentReturn<TData = Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError = ErrorType<unknown>>(
+ id: string,
+    params: GetOrdersIdPaymentReturnParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>,
+          TError,
+          Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOrdersIdPaymentReturn<TData = Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError = ErrorType<unknown>>(
+ id: string,
+    params: GetOrdersIdPaymentReturnParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>,
+          TError,
+          Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOrdersIdPaymentReturn<TData = Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError = ErrorType<unknown>>(
+ id: string,
+    params: GetOrdersIdPaymentReturnParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetOrdersIdPaymentReturn<TData = Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError = ErrorType<unknown>>(
+ id: string,
+    params: GetOrdersIdPaymentReturnParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrdersIdPaymentReturn>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetOrdersIdPaymentReturnQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPostOrdersIdShipUrl = (id: string,) => {
+
+
+
+
+  return `/orders/${id}/ship`
+}
+
+export const postOrdersIdShip = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+  return apiFetch<void>(getPostOrdersIdShipUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPostOrdersIdShipMutationKey = () => ['postOrdersIdShip'] as const;
+
+export const getPostOrdersIdShipMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdShip>>, TError,PostOrdersIdShipMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdShip>>, TError,PostOrdersIdShipMutationVariables, TContext> => {
+
+const mutationKey = getPostOrdersIdShipMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postOrdersIdShip>>, PostOrdersIdShipMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  postOrdersIdShip(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostOrdersIdShipMutationResult = NonNullable<Awaited<ReturnType<typeof postOrdersIdShip>>>
+
+    export type PostOrdersIdShipMutationError = ErrorType<unknown>
+    export type PostOrdersIdShipMutationVariables = {id: string}
+
+    export const usePostOrdersIdShip = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdShip>>, TError,PostOrdersIdShipMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postOrdersIdShip>>,
+        TError,
+        PostOrdersIdShipMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPostOrdersIdShipMutationOptions(options), queryClient);
+    }
+
+export const getPutOrdersIdAddressUrl = (id: string,) => {
+
+
+
+
+  return `/orders/${id}/address`
+}
+
+export const putOrdersIdAddress = async (id: string,
+    updateShippingAddressRequest: UpdateShippingAddressRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<void>(getPutOrdersIdAddressUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateShippingAddressRequest)
+  }
+);}
+
+
+
+
+
+export const getPutOrdersIdAddressMutationKey = () => ['putOrdersIdAddress'] as const;
+
+export const getPutOrdersIdAddressMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putOrdersIdAddress>>, TError,PutOrdersIdAddressMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof putOrdersIdAddress>>, TError,PutOrdersIdAddressMutationVariables, TContext> => {
+
+const mutationKey = getPutOrdersIdAddressMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putOrdersIdAddress>>, PutOrdersIdAddressMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  putOrdersIdAddress(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutOrdersIdAddressMutationResult = NonNullable<Awaited<ReturnType<typeof putOrdersIdAddress>>>
+    export type PutOrdersIdAddressMutationBody = BodyType<UpdateShippingAddressRequest>
+    export type PutOrdersIdAddressMutationError = ErrorType<unknown>
+    export type PutOrdersIdAddressMutationVariables = {id: string;data: BodyType<UpdateShippingAddressRequest>}
+
+    export const usePutOrdersIdAddress = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putOrdersIdAddress>>, TError,PutOrdersIdAddressMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putOrdersIdAddress>>,
+        TError,
+        PutOrdersIdAddressMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPutOrdersIdAddressMutationOptions(options), queryClient);
+    }
+
+export const getPostOrdersIdItemsUrl = (id: string,) => {
+
+
+
+
+  return `/orders/${id}/items`
+}
+
+export const postOrdersIdItems = async (id: string,
+    addItemToOrderRequest: AddItemToOrderRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<void>(getPostOrdersIdItemsUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(addItemToOrderRequest)
+  }
+);}
+
+
+
+
+
+export const getPostOrdersIdItemsMutationKey = () => ['postOrdersIdItems'] as const;
+
+export const getPostOrdersIdItemsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdItems>>, TError,PostOrdersIdItemsMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdItems>>, TError,PostOrdersIdItemsMutationVariables, TContext> => {
+
+const mutationKey = getPostOrdersIdItemsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postOrdersIdItems>>, PostOrdersIdItemsMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  postOrdersIdItems(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostOrdersIdItemsMutationResult = NonNullable<Awaited<ReturnType<typeof postOrdersIdItems>>>
+    export type PostOrdersIdItemsMutationBody = BodyType<AddItemToOrderRequest>
+    export type PostOrdersIdItemsMutationError = ErrorType<unknown>
+    export type PostOrdersIdItemsMutationVariables = {id: string;data: BodyType<AddItemToOrderRequest>}
+
+    export const usePostOrdersIdItems = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdItems>>, TError,PostOrdersIdItemsMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postOrdersIdItems>>,
+        TError,
+        PostOrdersIdItemsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPostOrdersIdItemsMutationOptions(options), queryClient);
+    }
+
+export const getDeleteOrdersIdItemsItemIdUrl = (id: string,
+    itemId: string,) => {
+
+
+
+
+  return `/orders/${id}/items/${itemId}`
+}
+
+export const deleteOrdersIdItemsItemId = async (id: string,
+    itemId: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+  return apiFetch<void>(getDeleteOrdersIdItemsItemIdUrl(id,itemId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteOrdersIdItemsItemIdMutationKey = () => ['deleteOrdersIdItemsItemId'] as const;
+
+export const getDeleteOrdersIdItemsItemIdMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOrdersIdItemsItemId>>, TError,DeleteOrdersIdItemsItemIdMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteOrdersIdItemsItemId>>, TError,DeleteOrdersIdItemsItemIdMutationVariables, TContext> => {
+
+const mutationKey = getDeleteOrdersIdItemsItemIdMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteOrdersIdItemsItemId>>, DeleteOrdersIdItemsItemIdMutationVariables> = (props) => {
+          const {id,itemId} = props ?? {};
+
+          return  deleteOrdersIdItemsItemId(id,itemId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteOrdersIdItemsItemIdMutationResult = NonNullable<Awaited<ReturnType<typeof deleteOrdersIdItemsItemId>>>
+
+    export type DeleteOrdersIdItemsItemIdMutationError = ErrorType<unknown>
+    export type DeleteOrdersIdItemsItemIdMutationVariables = {id: string;itemId: string}
+
+    export const useDeleteOrdersIdItemsItemId = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOrdersIdItemsItemId>>, TError,DeleteOrdersIdItemsItemIdMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteOrdersIdItemsItemId>>,
+        TError,
+        DeleteOrdersIdItemsItemIdMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteOrdersIdItemsItemIdMutationOptions(options), queryClient);
+    }
+
+export const getPostOrdersIdResendConfirmationUrl = (id: string,) => {
+
+
+
+
+  return `/orders/${id}/resend-confirmation`
+}
+
+export const postOrdersIdResendConfirmation = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+  return apiFetch<void>(getPostOrdersIdResendConfirmationUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPostOrdersIdResendConfirmationMutationKey = () => ['postOrdersIdResendConfirmation'] as const;
+
+export const getPostOrdersIdResendConfirmationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdResendConfirmation>>, TError,PostOrdersIdResendConfirmationMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdResendConfirmation>>, TError,PostOrdersIdResendConfirmationMutationVariables, TContext> => {
+
+const mutationKey = getPostOrdersIdResendConfirmationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postOrdersIdResendConfirmation>>, PostOrdersIdResendConfirmationMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  postOrdersIdResendConfirmation(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostOrdersIdResendConfirmationMutationResult = NonNullable<Awaited<ReturnType<typeof postOrdersIdResendConfirmation>>>
+
+    export type PostOrdersIdResendConfirmationMutationError = ErrorType<unknown>
+    export type PostOrdersIdResendConfirmationMutationVariables = {id: string}
+
+    export const usePostOrdersIdResendConfirmation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postOrdersIdResendConfirmation>>, TError,PostOrdersIdResendConfirmationMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postOrdersIdResendConfirmation>>,
+        TError,
+        PostOrdersIdResendConfirmationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPostOrdersIdResendConfirmationMutationOptions(options), queryClient);
+    }
+
 export const getGetCustomersUrl = () => {
 
 
@@ -1917,9 +1923,9 @@ export const getGetCustomersUrl = () => {
   return `/customers`
 }
 
-export const getCustomers = async ( options?: Parameters<typeof apiFetch>[1]): Promise<CustomerDto[]> => {
+export const getCustomers = async ( options?: Parameters<typeof apiFetch>[1]): Promise<CustomerSummary[]> => {
 
-  return apiFetch<CustomerDto[]>(getGetCustomersUrl(),
+  return apiFetch<CustomerSummary[]>(getGetCustomersUrl(),
   {
     ...options,
     method: 'GET'
@@ -2012,7 +2018,7 @@ export const getPostCustomersUrl = () => {
   return `/customers`
 }
 
-export const postCustomers = async (customerDto: CustomerDto, options?: Parameters<typeof apiFetch>[1]): Promise<CustomerDto> => {
+export const postCustomers = async (registerCustomerCommand: RegisterCustomerCommand, options?: Parameters<typeof apiFetch>[1]): Promise<RegisterCustomerResponse> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -2028,12 +2034,12 @@ export const postCustomers = async (customerDto: CustomerDto, options?: Paramete
     }
     return headers;
   };
-return apiFetch<CustomerDto>(getPostCustomersUrl(),
+return apiFetch<RegisterCustomerResponse>(getPostCustomersUrl(),
   {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(customerDto)
+    body: JSON.stringify(registerCustomerCommand)
   }
 );}
 
@@ -2071,9 +2077,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PostCustomersMutationResult = NonNullable<Awaited<ReturnType<typeof postCustomers>>>
-    export type PostCustomersMutationBody = BodyType<CustomerDto>
+    export type PostCustomersMutationBody = BodyType<RegisterCustomerCommand>
     export type PostCustomersMutationError = ErrorType<unknown>
-    export type PostCustomersMutationVariables = {data: BodyType<CustomerDto>}
+    export type PostCustomersMutationVariables = {data: BodyType<RegisterCustomerCommand>}
 
     export const usePostCustomers = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postCustomers>>, TError,PostCustomersMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
@@ -2094,9 +2100,9 @@ export const getGetCustomersIdUrl = (id: string,) => {
   return `/customers/${id}`
 }
 
-export const getCustomersId = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<CustomerDto> => {
+export const getCustomersId = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<CustomerDetail> => {
 
-  return apiFetch<CustomerDto>(getGetCustomersIdUrl(id),
+  return apiFetch<CustomerDetail>(getGetCustomersIdUrl(id),
   {
     ...options,
     method: 'GET'
@@ -2206,7 +2212,7 @@ export const postCustomersIdVip = async (id: string, options?: Parameters<typeof
 
 export const getPostCustomersIdVipMutationKey = () => ['postCustomersIdVip'] as const;
 
-export const getPostCustomersIdVipMutationOptions = <TError = ErrorType<ErrorResponse>,
+export const getPostCustomersIdVipMutationOptions = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postCustomersIdVip>>, TError,PostCustomersIdVipMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof postCustomersIdVip>>, TError,PostCustomersIdVipMutationVariables, TContext> => {
 
@@ -2235,10 +2241,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type PostCustomersIdVipMutationResult = NonNullable<Awaited<ReturnType<typeof postCustomersIdVip>>>
 
-    export type PostCustomersIdVipMutationError = ErrorType<ErrorResponse>
+    export type PostCustomersIdVipMutationError = ErrorType<unknown>
     export type PostCustomersIdVipMutationVariables = {id: string}
 
-    export const usePostCustomersIdVip = <TError = ErrorType<ErrorResponse>,
+    export const usePostCustomersIdVip = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postCustomersIdVip>>, TError,PostCustomersIdVipMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postCustomersIdVip>>,

@@ -35,15 +35,13 @@ public class ProductRepository(AppDbContext db) : IProductRepository
         return (items, totalCount);
     }
 
-    public async Task Add(Product product)
+    public void Add(Product product)
     {
         db.Products.Add(product);
-        await db.SaveChangesAsync();
     }
 
-    public async Task Update(Product product)
+    public void Update(Product product)
     {
         db.Products.Update(product);
-        await db.SaveChangesAsync();
     }
 }

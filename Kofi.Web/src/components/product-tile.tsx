@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
-import type { ProductDto } from '@/api/generated/model'
+import type { ProductSummary } from '@/api/generated/model'
 import { ProductImage } from '@/components/product-image'
 import { RoastStamp } from '@/components/roast-stamp'
 import { Button } from '@/components/ui/button'
@@ -8,7 +8,7 @@ import { toastAddedToCart } from '@/lib/added-to-cart'
 import { useCart } from '@/lib/cart'
 import { formatMoney } from '@/lib/format'
 
-export function ProductTile({ product }: { product: ProductDto }) {
+export function ProductTile({ product }: { product: ProductSummary }) {
   const cart = useCart()
   const stock = Number(product.stockQuantity ?? 0)
   const price = Number(product.price ?? 0)
@@ -47,7 +47,6 @@ export function ProductTile({ product }: { product: ProductDto }) {
             {name}
           </Link>
         </h3>
-        <p className="line-clamp-2 text-sm text-muted-foreground">{product.description}</p>
         <div className="mt-auto flex items-center justify-between pt-3">
           <div>
             <div className="text-lg font-semibold tabular">{formatMoney(price)}</div>

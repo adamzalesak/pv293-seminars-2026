@@ -18,14 +18,16 @@ export const Route = createFileRoute('/_shop/_customer/orders/')({
     onlyPaid: z.boolean().optional().catch(undefined),
   }),
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) => context.queryClient.prefetchQuery(getGetOrdersQueryOptions(deps)),
+  loader: ({ context, deps }) => context.queryClient.prefetchQuery(getGetOrdersQueryOptions(params(deps))),
   component: MyOrders,
 })
+
+const params = (s: { sortBy?: string; onlyPaid?: boolean }) => ({ sortBy: s.sortBy, onlyPaid: s.onlyPaid })
 
 function MyOrders() {
   const { sortBy, onlyPaid } = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
-  const orders = useGetOrders({ sortBy, onlyPaid })
+  const orders = useGetOrders(params({ sortBy, onlyPaid }))
 
   return (
     <div className="space-y-6">

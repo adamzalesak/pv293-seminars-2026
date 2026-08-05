@@ -7,6 +7,7 @@ import { z } from 'zod'
 import {
   getGetProductsQueryOptions,
   useGetProducts,
+  useGetProductsId,
   usePostProducts,
   usePostProductsIdActivate,
   usePostProductsIdDeactivate,
@@ -14,7 +15,7 @@ import {
   usePutProductsId,
   usePutProductsIdPrice,
 } from '@/api/generated/endpoints'
-import type { ProductDto } from '@/api/generated/model'
+import type { ProductDetail, ProductSummary } from '@/api/generated/model'
 import { PageTitle } from '@/components/page-title'
 import { ErrorState } from '@/components/states'
 import {
@@ -51,7 +52,7 @@ export const Route = createFileRoute('/admin/products')({
   component: AdminProducts,
 })
 
-type Action = { kind: 'edit' | 'price' | 'restock' | 'deactivate'; product: ProductDto } | null
+type Action = { kind: 'edit' | 'price' | 'restock' | 'deactivate'; product: ProductSummary } | null
 
 function AdminProducts() {
   const products = useGetProducts(allProducts)
@@ -222,7 +223,28 @@ function CreateProductDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
 const detailsSchema = productSchema.pick({ name: true, description: true, origin: true, roastedOn: true })
 
-function EditProductDialog({ product, onClose }: { product: ProductDto; onClose: () => void }) {
+// The list leaves the description out, so the form starts from the product's detail.
+function EditProductDialog({ product, onClose }: { product: ProductSummary; onClose: () => void }) {
+  const detail = useGetProductsId(product.id)
+  if (detail.data) return <EditProductForm product={detail.data} onClose={onClose} />
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit {product.name}</DialogTitle>
+          <DialogDescription>Price and stock have their own actions.</DialogDescription>
+        </DialogHeader>
+        {detail.isError ? (
+          <ErrorState error={detail.error} onRetry={() => detail.refetch()} />
+        ) : (
+          <Skeleton className="h-64 rounded-lg" />
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function EditProductForm({ product, onClose }: { product: ProductDetail; onClose: () => void }) {
   const onDone = useOnDone()
   const form = useForm({
     resolver: zodResolver(detailsSchema),
@@ -248,7 +270,7 @@ function EditProductDialog({ product, onClose }: { product: ProductDto; onClose:
           onSubmit={form.handleSubmit((v) =>
             update.mutate(
               {
-                id: product.id!,
+                id: product.id,
                 data: { ...v, origin: v.origin || null, roastedOn: v.roastedOn || null, imageUrl: product.imageUrl },
               },
               { onSuccess: onClose },
@@ -336,7 +358,7 @@ function NumberDialog({
   )
 }
 
-function PriceDialog({ product, onClose }: { product: ProductDto; onClose: () => void }) {
+function PriceDialog({ product, onClose }: { product: ProductSummary; onClose: () => void }) {
   const onDone = useOnDone()
   const change = usePutProductsIdPrice({ mutation: onDone('Price changed', '/products') })
   return (
@@ -353,7 +375,7 @@ function PriceDialog({ product, onClose }: { product: ProductDto; onClose: () =>
   )
 }
 
-function RestockDialog({ product, onClose }: { product: ProductDto; onClose: () => void }) {
+function RestockDialog({ product, onClose }: { product: ProductSummary; onClose: () => void }) {
   const onDone = useOnDone()
   const restock = usePostProductsIdRestock({ mutation: onDone('Stock added', '/products') })
   return (
@@ -370,7 +392,7 @@ function RestockDialog({ product, onClose }: { product: ProductDto; onClose: () 
   )
 }
 
-function DeactivateDialog({ product, onClose }: { product: ProductDto; onClose: () => void }) {
+function DeactivateDialog({ product, onClose }: { product: ProductSummary; onClose: () => void }) {
   const onDone = useOnDone()
   const deactivate = usePostProductsIdDeactivate({ mutation: onDone('Product taken off sale', '/products') })
   return (

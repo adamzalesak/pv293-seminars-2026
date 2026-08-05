@@ -8,6 +8,6 @@ public interface IOrderRepository
     Task<Order?> GetByIdWithItems(Guid id);
     IQueryable<Order> Query();
     void Add(Order order);
-    Task Update(Order order);
+    void Update(Order order);
     Task<int> CountByStatus(OrderStatus status);
 }

@@ -4,6 +4,6 @@ namespace Kofi.BusinessLayer.Services;
 
 public interface IStockService
 {
-    Task Reserve(Product product, int quantity);
+    void Reserve(Product product, int quantity);
     Task Release(Guid productId, int quantity);
 }

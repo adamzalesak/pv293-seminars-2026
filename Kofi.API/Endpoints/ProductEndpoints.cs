@@ -1,8 +1,16 @@
 using Kofi.API.Auth;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Kofi.BusinessLayer.Dtos;
-using Kofi.BusinessLayer.Services;
+using MediatR;
+using Kofi.BusinessLayer.Abstractions;
+using Kofi.BusinessLayer.Features.Products.ActivateProduct;
+using Kofi.BusinessLayer.Features.Products.ChangeProductPrice;
+using Kofi.BusinessLayer.Features.Products.CreateProduct;
+using Kofi.BusinessLayer.Features.Products.DeactivateProduct;
+using Kofi.BusinessLayer.Features.Products.GetProduct;
+using Kofi.BusinessLayer.Features.Products.RestockProduct;
+using Kofi.BusinessLayer.Features.Products.SearchProducts;
+using Kofi.BusinessLayer.Features.Products.UpdateProduct;
 
 namespace Kofi.API.Endpoints;
 
@@ -10,9 +18,11 @@ public static class ProductEndpoints
 {
     public static void MapProductEndpoints(this WebApplication app)
     {
+        var products = app.MapGroup("/products").WithTags("Products");
+
         // The shop lists what is on sale; the administrator can ask for the rest.
-        app.MapGet("/products", async Task<Results<Ok<PagedResult<ProductDto>>, ForbidHttpResult>> (
-            IProductService service, ClaimsPrincipal user, string? search, string? sort, int? page, int? pageSize,
+        products.MapGet("", async Task<Results<Ok<PagedResult<ProductSummary>>, ForbidHttpResult>> (
+            IMediator mediator, ClaimsPrincipal user, string? search, string? sort, int? page, int? pageSize,
             bool? includeInactive) =>
         {
             if (includeInactive == true && !user.IsInRole(Roles.Administrator))
@@ -20,98 +30,67 @@ public static class ProductEndpoints
                 return TypedResults.Forbid();
             }
 
-            var products = await service.GetProducts(
-                search, sort, Math.Max(page ?? 1, 1), Math.Clamp(pageSize ?? 20, 1, 100), includeInactive ?? false);
-            return TypedResults.Ok(products);
+            return TypedResults.Ok(await mediator.Send(new SearchProductsQuery
+            {
+                Search = search,
+                Sort = sort,
+                Page = Math.Max(page ?? 1, 1),
+                PageSize = Math.Clamp(pageSize ?? 20, 1, 100),
+                IncludeInactive = includeInactive ?? false,
+            }));
         });
 
-        app.MapGet("/products/{id:guid}", async Task<Results<Ok<ProductDto>, NotFound>> (IProductService service, Guid id) =>
+        products.MapGet("/{id:guid}", async Task<Results<Ok<ProductDetail>, NotFound>> (IMediator mediator, Guid id) =>
         {
-            var product = await service.GetProduct(id);
-            if (product == null)
-            {
-                return TypedResults.NotFound();
-            }
-            return TypedResults.Ok(product);
+            var product = await mediator.Send(new GetProductQuery { Id = id });
+            return product == null ? TypedResults.NotFound() : TypedResults.Ok(product);
         });
 
-        app.MapPost("/products", async Task<Results<Created<ProductDto>, BadRequest<ErrorResponse>>> (IProductService service, ProductDto request) =>
+        products.MapPost("", async Task<Created<CreateProductResponse>> (IMediator mediator, CreateProductCommand command) =>
         {
-            try
-            {
-                var product = await service.CreateProduct(request);
-                return TypedResults.Created($"/products/{product.Id}", product);
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.BadRequest(new ErrorResponse(ex.Message));
-            }
+            var product = await mediator.Send(command);
+            return TypedResults.Created($"/products/{product.Id}", product);
         }).RequireAuthorization(Roles.Administrator);
 
-        app.MapPut("/products/{id:guid}", async Task<Results<NoContent, BadRequest<ErrorResponse>>> (
-            IProductService service, Guid id, ProductDto request) =>
+        products.MapPut("/{id:guid}", async Task<NoContent> (
+            IMediator mediator, Guid id, UpdateProductRequest request) =>
         {
-            try
+            await mediator.Send(new UpdateProductCommand
             {
-                await service.UpdateProduct(id, request);
-                return TypedResults.NoContent();
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.BadRequest(new ErrorResponse(ex.Message));
-            }
+                Id = id,
+                Name = request.Name,
+                Description = request.Description,
+                RoastedOn = request.RoastedOn,
+                Origin = request.Origin,
+                ImageUrl = request.ImageUrl,
+            });
+            return TypedResults.NoContent();
         }).RequireAuthorization(Roles.Administrator);
 
-        app.MapPut("/products/{id:guid}/price", async Task<Results<NoContent, BadRequest<string>, ProblemHttpResult>> (
-            IProductService service, Guid id, ChangePriceRequest request) =>
+        products.MapPut("/{id:guid}/price", async Task<NoContent> (
+            IMediator mediator, Guid id, ChangeProductPriceRequest request) =>
         {
-            if (request.Price <= 0)
-            {
-                return TypedResults.BadRequest("Price must be positive");
-            }
-
-            try
-            {
-                await service.ChangePrice(id, request.Price);
-                return TypedResults.NoContent();
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.Problem(ex.Message);
-            }
+            await mediator.Send(new ChangeProductPriceCommand { Id = id, Price = request.Price });
+            return TypedResults.NoContent();
         }).RequireAuthorization(Roles.Administrator);
 
-        app.MapPost("/products/{id:guid}/deactivate", async Task<Results<Ok, ContentHttpResult>> (IProductService service, Guid id) =>
+        products.MapPost("/{id:guid}/deactivate", async Task<NoContent> (IMediator mediator, Guid id) =>
         {
-            try
-            {
-                await service.Deactivate(id);
-                return TypedResults.Ok();
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.Text("Error: " + ex.Message, "text/plain", null, 500);
-            }
+            await mediator.Send(new DeactivateProductCommand { Id = id });
+            return TypedResults.NoContent();
         }).RequireAuthorization(Roles.Administrator);
 
-        app.MapPost("/products/{id:guid}/activate", async Task<Results<Ok, ContentHttpResult>> (IProductService service, Guid id) =>
+        products.MapPost("/{id:guid}/activate", async Task<NoContent> (IMediator mediator, Guid id) =>
         {
-            try
-            {
-                await service.Activate(id);
-                return TypedResults.Ok();
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.Text("Error: " + ex.Message, "text/plain", null, 500);
-            }
+            await mediator.Send(new ActivateProductCommand { Id = id });
+            return TypedResults.NoContent();
         }).RequireAuthorization(Roles.Administrator);
 
-        app.MapPost("/products/{id:guid}/restock", async Task<Ok> (
-            IProductService service, Guid id, RestockRequest request) =>
+        products.MapPost("/{id:guid}/restock", async Task<NoContent> (
+            IMediator mediator, Guid id, RestockProductRequest request) =>
         {
-            await service.Restock(id, request.Quantity);
-            return TypedResults.Ok();
+            await mediator.Send(new RestockProductCommand { Id = id, Quantity = request.Quantity });
+            return TypedResults.NoContent();
         }).RequireAuthorization(Roles.Administrator);
     }
 }

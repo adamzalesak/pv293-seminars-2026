@@ -5,10 +5,10 @@ namespace Kofi.BusinessLayer.Services;
 
 public class StockService(IProductRepository products) : IStockService
 {
-    public async Task Reserve(Product product, int quantity)
+    public void Reserve(Product product, int quantity)
     {
         product.StockQuantity = product.StockQuantity - quantity;
-        await products.Update(product);
+        products.Update(product);
     }
 
     public async Task Release(Guid productId, int quantity)
@@ -17,7 +17,7 @@ public class StockService(IProductRepository products) : IStockService
         if (product != null)
         {
             product.StockQuantity = product.StockQuantity + quantity;
-            await products.Update(product);
+            products.Update(product);
         }
     }
 }
