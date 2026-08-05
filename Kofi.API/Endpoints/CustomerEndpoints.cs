@@ -1,7 +1,10 @@
 using Kofi.API.Auth;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Kofi.BusinessLayer.Dtos;
-using Kofi.BusinessLayer.Services;
+using MediatR;
+using Kofi.BusinessLayer.Features.Customers.GetCustomer;
+using Kofi.BusinessLayer.Features.Customers.GetCustomers;
+using Kofi.BusinessLayer.Features.Customers.MakeCustomerVip;
+using Kofi.BusinessLayer.Features.Customers.RegisterCustomer;
 
 namespace Kofi.API.Endpoints;
 
@@ -9,39 +12,27 @@ public static class CustomerEndpoints
 {
     public static void MapCustomerEndpoints(this WebApplication app)
     {
-        app.MapGet("/customers", async Task<Ok<List<CustomerDto>>> (ICustomerService service) =>
-        {
-            var customers = await service.GetCustomers();
-            return TypedResults.Ok(customers);
-        }).RequireAuthorization(Roles.Administrator);
+        var customers = app.MapGroup("/customers").WithTags("Customers").RequireAuthorization(Roles.Administrator);
 
-        app.MapGet("/customers/{id:guid}", async Task<Results<Ok<CustomerDto>, NotFound>> (ICustomerService service, Guid id) =>
-        {
-            var customer = await service.GetCustomer(id);
-            if (customer == null)
-            {
-                return TypedResults.NotFound();
-            }
-            return TypedResults.Ok(customer);
-        }).RequireAuthorization(Roles.Administrator);
+        customers.MapGet("", async Task<Ok<List<CustomerSummary>>> (IMediator mediator) =>
+            TypedResults.Ok(await mediator.Send(new GetCustomersQuery())));
 
-        app.MapPost("/customers", async Task<Created<CustomerDto>> (ICustomerService service, CustomerDto request) =>
+        customers.MapGet("/{id:guid}", async Task<Results<Ok<CustomerDetail>, NotFound>> (IMediator mediator, Guid id) =>
         {
-            var customer = await service.RegisterCustomer(request);
+            var customer = await mediator.Send(new GetCustomerQuery { Id = id });
+            return customer == null ? TypedResults.NotFound() : TypedResults.Ok(customer);
+        });
+
+        customers.MapPost("", async Task<Created<RegisterCustomerResponse>> (IMediator mediator, RegisterCustomerCommand command) =>
+        {
+            var customer = await mediator.Send(command);
             return TypedResults.Created($"/customers/{customer.Id}", customer);
-        }).RequireAuthorization(Roles.Administrator);
+        });
 
-        app.MapPost("/customers/{id:guid}/vip", async Task<Results<Ok, BadRequest<ErrorResponse>>> (ICustomerService service, Guid id) =>
+        customers.MapPost("/{id:guid}/vip", async Task<NoContent> (IMediator mediator, Guid id) =>
         {
-            try
-            {
-                await service.MakeVip(id);
-                return TypedResults.Ok();
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.BadRequest(new ErrorResponse(ex.Message));
-            }
-        }).RequireAuthorization(Roles.Administrator);
+            await mediator.Send(new MakeCustomerVipCommand { Id = id });
+            return TypedResults.NoContent();
+        });
     }
 }

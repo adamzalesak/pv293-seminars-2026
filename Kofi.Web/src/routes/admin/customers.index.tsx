@@ -14,7 +14,6 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { formatDate } from '@/lib/format'
 import { useOnDone } from '@/lib/use-on-done'
 
 export const Route = createFileRoute('/admin/customers/')({
@@ -48,8 +47,6 @@ function AdminCustomers() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>E-mail</TableHead>
-                <TableHead>City</TableHead>
-                <TableHead>Customer since</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -66,8 +63,6 @@ function AdminCustomers() {
                     )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{c.email}</TableCell>
-                  <TableCell>{c.city}</TableCell>
-                  <TableCell className="text-muted-foreground">{formatDate(c.registeredAt!)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -6,7 +6,6 @@
  */
 
 export type GetOrdersParams = {
-includeItems?: boolean;
 onlyPaid?: boolean;
 from?: string;
 sortBy?: string;

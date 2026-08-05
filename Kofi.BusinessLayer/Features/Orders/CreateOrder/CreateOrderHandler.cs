@@ -49,7 +49,7 @@ public class CreateOrderHandler(
                 throw new DomainException("Not enough stock for " + product.Name);
             }
 
-            await stock.Reserve(product, requested.Quantity);
+            stock.Reserve(product, requested.Quantity);
 
             order.Items.Add(new OrderItem
             {

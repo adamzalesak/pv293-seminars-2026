@@ -5,13 +5,16 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export * from './addItemRequest';
-export * from './changePriceRequest';
+export * from './addItemToOrderRequest';
+export * from './changeProductPriceRequest';
+export * from './confirmOrderPaymentResponse';
 export * from './createOrderCommand';
 export * from './createOrderItem';
 export * from './createOrderResponse';
-export * from './customerDto';
-export * from './errorResponse';
+export * from './createProductCommand';
+export * from './createProductResponse';
+export * from './customerDetail';
+export * from './customerSummary';
 export * from './getOrdersExportParams';
 export * from './getOrdersIdPaymentReturnParams';
 export * from './getOrdersParams';
@@ -19,11 +22,15 @@ export * from './getProductsParams';
 export * from './loginRequest';
 export * from './loginResponse';
 export * from './orderCountResponse';
-export * from './orderDto';
-export * from './orderItemDto';
-export * from './pagedResultOfProductDto';
-export * from './paymentReturnResponse';
-export * from './paymentStartedResponse';
-export * from './productDto';
-export * from './restockRequest';
-export * from './updateAddressRequest';
+export * from './orderDetail';
+export * from './orderDetailItem';
+export * from './orderSummary';
+export * from './pagedResultOfProductSummary';
+export * from './productDetail';
+export * from './productSummary';
+export * from './registerCustomerCommand';
+export * from './registerCustomerResponse';
+export * from './restockProductRequest';
+export * from './startOrderPaymentResponse';
+export * from './updateProductRequest';
+export * from './updateShippingAddressRequest';

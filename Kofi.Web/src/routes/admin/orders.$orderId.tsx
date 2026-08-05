@@ -15,7 +15,7 @@ import {
   usePostOrdersIdShip,
   usePutOrdersIdAddress,
 } from '@/api/generated/endpoints'
-import type { OrderDto } from '@/api/generated/model'
+import type { OrderDetail } from '@/api/generated/model'
 import { OrderStatus } from '@/components/order-status'
 import { OrderSummary } from '@/components/order-summary'
 import { PageTitle } from '@/components/page-title'
@@ -207,7 +207,7 @@ const addressSchema = z.object({
   zip: z.string().trim().min(3, 'Enter a postcode.'),
 })
 
-function AddressDialog({ order }: { order: OrderDto }) {
+function AddressDialog({ order }: { order: OrderDetail }) {
   const [open, setOpen] = useState(false)
   const onDone = useOnDone()
   const form = useForm({

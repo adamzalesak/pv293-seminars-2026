@@ -11,20 +11,23 @@ public class CustomerRepository(AppDbContext db) : ICustomerRepository
         return await db.Customers.FirstOrDefaultAsync(c => c.Id == id);
     }
 
+    public async Task<bool> EmailTaken(string email)
+    {
+        return await db.Customers.AnyAsync(c => c.Email == email);
+    }
+
     public async Task<List<Customer>> GetAll()
     {
         return await db.Customers.ToListAsync();
     }
 
-    public async Task Add(Customer customer)
+    public void Add(Customer customer)
     {
         db.Customers.Add(customer);
-        await db.SaveChangesAsync();
     }
 
-    public async Task Update(Customer customer)
+    public void Update(Customer customer)
     {
         db.Customers.Update(customer);
-        await db.SaveChangesAsync();
     }
 }
