@@ -24,6 +24,24 @@ public class PaymentGatewayClient(HttpClient http) : IPaymentGatewayClient
         return (json.GetProperty("id").GetGuid(), json.GetProperty("redirectUrl").GetString()!);
     }
 
+    // A saved card, charged with no customer present. Like CreatePayment, the
+    // key names one attempt: a new attempt for the same order needs a new key.
+    public async Task<(Guid PaymentId, PaymentStatus Status)> Charge(
+        decimal amount, string currency, string reference, string paymentMethodToken, string idempotencyKey)
+    {
+        var response = await http.PostAsJsonAsync("/charges", new
+        {
+            amount,
+            currency,
+            reference,
+            paymentMethodToken,
+            idempotencyKey,
+        });
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return (json.GetProperty("id").GetGuid(), StatusOf(json));
+    }
+
     // Stops a payment the customer has not made yet. One the customer made
     // in the meantime cannot be stopped any more, so its money goes back.
     // Returns the payment's final status: Cancelled, Refunded, or Declined
@@ -47,6 +65,26 @@ public class PaymentGatewayClient(HttpClient http) : IPaymentGatewayClient
     {
         var json = await http.GetFromJsonAsync<JsonElement>($"/payments/{paymentId}");
         return (StatusOf(json), json.GetProperty("redirectUrl").GetString() ?? "");
+    }
+
+    // The customer authorises future charges on the provider's page; we only
+    // ever charge the token the provider hands back for a succeeded setup.
+    public async Task<(Guid SetupId, string RedirectUrl)> CreateCardSetup(
+        string reference, string returnUrl, string idempotencyKey)
+    {
+        var response = await http.PostAsJsonAsync("/setups", new { reference, returnUrl, idempotencyKey });
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return (json.GetProperty("id").GetGuid(), json.GetProperty("redirectUrl").GetString()!);
+    }
+
+    public async Task<(CardSetupStatus Status, string Reference, string? PaymentMethodToken, string? CardLabel)> GetCardSetup(Guid setupId)
+    {
+        var json = await http.GetFromJsonAsync<JsonElement>($"/setups/{setupId}");
+        return (Enum.Parse<CardSetupStatus>(json.GetProperty("status").GetString()!),
+            json.GetProperty("reference").GetString()!,
+            json.GetProperty("paymentMethodToken").GetString(),
+            json.GetProperty("cardLabel").GetString());
     }
 
     private static PaymentStatus StatusOf(JsonElement payment) =>

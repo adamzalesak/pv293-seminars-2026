@@ -33,7 +33,7 @@ model {
   }
 
   kofi = system 'KoFI' {
-    description 'E-shop: catalog, orders, stock, customer e-mails'
+    description 'E-shop: catalog, orders, subscriptions, stock, customer e-mails'
 
     api = container 'Kofi.API' {
       technology 'ASP.NET Core 10'
@@ -73,7 +73,7 @@ model {
 
     db = container 'Database' {
       technology 'PostgreSQL 17'
-      description 'Products, orders, customers'
+      description 'Products, orders, customers, subscriptions, deliveries'
       style {
         shape cylinder
       }
@@ -90,7 +90,7 @@ model {
     description 'Transactional e-mails'
   }
 
-  customer -> web 'browses, orders, pays' 'HTTPS'
+  customer -> web 'browses, orders, pays, manages subscriptions' 'HTTPS'
   operator -> web 'manages catalog and orders' 'HTTPS'
   api -> paymentGateway 'charges the card' 'HTTPS'
   api -> mailServer 'sends confirmations' 'SMTP'

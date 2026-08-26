@@ -11,6 +11,7 @@ export interface OrderDetailItem {
   productName: string;
   /** @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?$ */
   unitPrice: number | string;
+  currency: string;
   /** @pattern ^-?(?:0|[1-9]\d*)$ */
   quantity: number | string;
 }
