@@ -22,6 +22,12 @@ public class ProblemDetailsExceptionHandler(
                 Title = "Validation failed",
                 Detail = string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)),
             },
+            NotFoundException notFound => new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Not found",
+                Detail = notFound.Message,
+            },
             DomainException domain => new ProblemDetails
             {
                 Status = StatusCodes.Status400BadRequest,

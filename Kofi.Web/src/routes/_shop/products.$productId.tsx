@@ -4,12 +4,14 @@ import { useState } from 'react'
 import { getGetProductsIdQueryOptions, useGetProductsId } from '@/api/generated/endpoints'
 import { ProductImage } from '@/components/product-image'
 import { RoastStamp } from '@/components/roast-stamp'
+import { SubscribeDialog } from '@/components/subscribe-dialog'
 import { ErrorState } from '@/components/states'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toastAddedToCart } from '@/lib/added-to-cart'
 import { useCart } from '@/lib/cart'
 import { formatDate, formatMoney } from '@/lib/format'
+import { useUser } from '@/lib/session'
 
 export const Route = createFileRoute('/_shop/products/$productId')({
   loader: ({ context, params }) => context.queryClient.prefetchQuery(getGetProductsIdQueryOptions(params.productId)),
@@ -20,6 +22,7 @@ function ProductDetail() {
   const { productId } = Route.useParams()
   const product = useGetProductsId(productId)
   const cart = useCart()
+  const user = useUser()
   const router = useRouter()
   const canGoBack = useCanGoBack()
   const [quantity, setQuantity] = useState(1)
@@ -131,6 +134,21 @@ function ProductDetail() {
             <p className="text-sm text-muted-foreground">
               {inCart} already in your <Link to="/cart" className="underline underline-offset-4">cart</Link>.
             </p>
+          )}
+          {/* Coffee comes as a subscription too; the administrator has no subscriptions of their own. */}
+          {p.roastedOn && p.isActive && user?.role !== 'Administrator' && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4">
+              <p className="text-sm text-muted-foreground">Drinking this regularly? Get it delivered on a schedule.</p>
+              {user ? (
+                <SubscribeDialog product={p} />
+              ) : (
+                <Button variant="outline" asChild>
+                  <Link to="/login" search={{ redirect: `/products/${p.id}` }}>
+                    Sign in to subscribe
+                  </Link>
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </div>

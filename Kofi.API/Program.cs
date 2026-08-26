@@ -3,6 +3,7 @@ using FluentValidation;
 using Kofi.API.Infrastructure;
 using Kofi.BusinessLayer.Behaviors;
 using Kofi.BusinessLayer.Features.Orders.CreateOrder;
+using Kofi.BusinessLayer.Features.Subscriptions.ProcessDueDeliveries;
 using Kofi.DataAccessLayer.Data;
 using Kofi.API.Auth;
 using Kofi.API.Endpoints;
@@ -20,8 +21,11 @@ builder.AddNpgsqlDbContext<AppDbContext>("kofidb", settings => settings.DisableR
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 
 builder.Services.AddScoped<IStockService, StockService>();
+builder.Services.AddScoped<ISubscriptionOrderService, SubscriptionOrderService>();
+builder.Services.AddScoped<DueDeliveryProcessor>();
 builder.Services.AddScoped<IPricingService, PricingService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
@@ -35,6 +39,7 @@ builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssemblyContaining<CreateOrderCommand>();
     cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
+    cfg.AddOpenBehavior(typeof(SubscriptionOwnershipBehavior<,>));
     cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
     cfg.AddOpenBehavior(typeof(AuditBehavior<,>));
     cfg.AddOpenBehavior(typeof(TransactionBehavior<,>));
@@ -68,6 +73,8 @@ app.MapAuthEndpoints();
 app.MapProductEndpoints();
 app.MapOrderEndpoints();
 app.MapCustomerEndpoints();
+app.MapSubscriptionEndpoints();
+app.MapPaymentCardEndpoints();
 
 using (var scope = app.Services.CreateScope())
 {

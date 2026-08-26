@@ -40,9 +40,14 @@ function ShopLayout() {
               Shop
             </Link>
             {user?.role === 'Customer' && (
-              <Link to="/orders" className={navLink}>
-                Orders
-              </Link>
+              <>
+                <Link to="/orders" className={navLink}>
+                  Orders
+                </Link>
+                <Link to="/subscriptions" className={navLink}>
+                  Subscriptions
+                </Link>
+              </>
             )}
             {user?.role === 'Administrator' && (
               <Link to="/admin" className={navLink}>

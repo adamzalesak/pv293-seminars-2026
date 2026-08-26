@@ -16,89 +16,151 @@ Content-Type: application/json
 ###
 @customerToken = PASTE-CUSTOMER-TOKEN
 @adminToken = PASTE-ADMIN-TOKEN
+
+# Seeded products keep their ids across restarts: Kolumbie Huila 250 g.
+@productId = 7c1e9b42-0f3d-4a6e-8b25-d4f1a9c3e522
+# Today or later, as yyyy-MM-dd.
+@deliveryDay = REPLACE-WITH-A-DAY
+@subscriptionId = REPLACE-WITH-SUBSCRIPTION-ID
+@deliveryId = REPLACE-WITH-DELIVERY-ID
 @orderId = REPLACE-WITH-ORDER-ID
 @paymentId = REPLACE-WITH-PAYMENT-ID
+@setupId = REPLACE-WITH-SETUP-ID
 
-# Seeded products keep their ids across restarts.
-@v60Id = 2c9d4a70-e6b3-4f81-8d5c-7b1e3a9f6088
-@grinderId = 8e2b5f19-3c7a-4d0e-91b6-a4f2c8e5d077
-@kolumbieId = 7c1e9b42-0f3d-4a6e-8b25-d4f1a9c3e522
-
-### List products
+### Catalogue
 GET {{host}}/products
 
 ### The catalogue is paged: page and pageSize (default 20, at most 100)
 GET {{host}}/products?page=2&pageSize=5
 
-### List products sorted by price
-GET {{host}}/products?sort=price
-
-### One product
-GET {{host}}/products/{{v60Id}}
-
-### Change a price (administrator)
-PUT {{host}}/products/{{kolumbieId}}/price
-Authorization: Bearer {{adminToken}}
-Content-Type: application/json
-
-{ "price": 11.40 }
-
-### Edit a product's details (administrator)
-PUT {{host}}/products/{{kolumbieId}}
-Authorization: Bearer {{adminToken}}
-Content-Type: application/json
-
-{
-  "name": "Kolumbie Huila 250 g",
-  "description": "Zrnková, střední pražení, čokoláda a oříšky",
-  "origin": "Kolumbie"
-}
-
-### Take a product off sale, and put it back
-POST {{host}}/products/{{kolumbieId}}/deactivate
-Authorization: Bearer {{adminToken}}
-
-###
-POST {{host}}/products/{{kolumbieId}}/activate
-Authorization: Bearer {{adminToken}}
-
-### The whole catalogue, products off sale included (administrator)
-GET {{host}}/products?includeInactive=true
-Authorization: Bearer {{adminToken}}
-
-### List customers
+### Customers
 GET {{host}}/customers
 Authorization: Bearer {{adminToken}}
 
-### Create an order
-POST {{host}}/orders
+### Subscriptions
+GET {{host}}/subscriptions
+Authorization: Bearer {{adminToken}}
+
+### My subscriptions (as the customer: only Petra's)
+GET {{host}}/subscriptions
+Authorization: Bearer {{customerToken}}
+
+### Subscription detail and deliveries
+GET {{host}}/subscriptions/{{subscriptionId}}
+Authorization: Bearer {{adminToken}}
+
+### Subscribe (customer): the subscription starts incomplete, nothing is planned or charged yet
+POST {{host}}/subscriptions
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
 
 {
-  "customerName": "Petra Nováková",
-  "street": "Kounicova 12",
-  "city": "Brno",
-  "zip": "60200",
-  "items": [
-    { "productId": "{{kolumbieId}}", "quantity": 2 }
-  ]
+  "productId": "{{productId}}",
+  "quantity": 2,
+  "intervalDays": 21,
+  "firstDeliveryOn": "{{deliveryDay}}"
 }
 
-### Order a V60 and 999 grinders
+### Already have a saved card? Activate with it straight away (customer)
+POST {{host}}/subscriptions/{{subscriptionId}}/activate
+Authorization: Bearer {{customerToken}}
+
+### Or authorise a (different) card: the shop creates a card setup at the provider
+### and answers with its page. In a browser you would go to redirectUrl.
+POST {{host}}/subscriptions/{{subscriptionId}}/card-setup
+Authorization: Bearer {{customerToken}}
+
+### Without a browser: press "Authorise" on the provider's page (saves tok_visa)
+POST {{gateway}}/setups/{{setupId}}/approve
+
+### The provider sends the browser back here; the shop asks the provider about
+### the setup, keeps the card and activates. A first delivery due today is
+### prepared and charged at once.
+GET {{host}}/subscriptions/{{subscriptionId}}/card-return?setupId={{setupId}}
+
+### The card all my subscriptions are charged to (customer)
+GET {{host}}/payment-card
+Authorization: Bearer {{customerToken}}
+
+### Change it: the same authorisation at the provider, then back to /payment-card/return
+POST {{host}}/payment-card/setup
+Authorization: Bearer {{customerToken}}
+
+### Without a browser: authorise a card that the bank will decline later
+POST {{gateway}}/setups/{{setupId}}/approve?token=tok_declined
+
+GET {{host}}/payment-card/return?setupId={{setupId}}
+
+### Prepare one due delivery by hand
+POST {{host}}/subscriptions/{{subscriptionId}}/deliveries/{{deliveryId}}/prepare
+Authorization: Bearer {{adminToken}}
+
+### Prepare every due delivery — what the daily cron job calls
+POST {{host}}/subscriptions/process-due
+Authorization: Bearer {{adminToken}}
+
+### Pause
+POST {{host}}/subscriptions/{{subscriptionId}}/pause
+Authorization: Bearer {{customerToken}}
+
+### Resume
+POST {{host}}/subscriptions/{{subscriptionId}}/resume
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "nextDeliveryOn": "{{deliveryDay}}"
+}
+
+### Skip the next planned delivery
+POST {{host}}/subscriptions/{{subscriptionId}}/skip
+Authorization: Bearer {{customerToken}}
+
+### Change the plan for future deliveries
+PUT {{host}}/subscriptions/{{subscriptionId}}/plan
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{ "productId": "{{productId}}", "quantity": 1, "intervalDays": 14 }
+
+### Cancel
+POST {{host}}/subscriptions/{{subscriptionId}}/cancel
+Authorization: Bearer {{customerToken}}
+
+### Orders
+GET {{host}}/orders
+Authorization: Bearer {{adminToken}}
+
+### Order detail
+GET {{host}}/orders/{{orderId}}
+Authorization: Bearer {{adminToken}}
+
+### Subscription orders are already paid with the saved card; the
+### provider's page lists every payment
+GET {{gateway}}/
+
+### Mark the order shipped
+POST {{host}}/orders/{{orderId}}/ship
+Authorization: Bearer {{adminToken}}
+
+### Update the catalogue price
+PUT {{host}}/products/{{productId}}/price
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "price": 20.00 }
+
+### One-off order
 POST {{host}}/orders
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
 
 {
-  "customerName": "Petra Nováková",
-  "street": "Kounicova 12",
+  "customerName": "Ada Lovelace",
+  "street": "Botanicka 68a",
   "city": "Brno",
   "zip": "60200",
-  "items": [
-    { "productId": "{{v60Id}}", "quantity": 1 },
-    { "productId": "{{grinderId}}", "quantity": 999 }
-  ]
+  "items": [{ "productId": "{{productId}}", "quantity": 2 }]
 }
 
 ### Pay an order (customer): the shop creates a payment at the provider and
@@ -113,44 +175,13 @@ POST {{gateway}}/payments/{{paymentId}}/approve
 ### for the payment's status before it marks the order paid
 GET {{host}}/orders/{{orderId}}/payment-return?paymentId={{paymentId}}
 
-### My orders (customer)
-GET {{host}}/orders
-Authorization: Bearer {{customerToken}}
-
 ### My order (customer): only your own, anyone else's is 404
 GET {{host}}/orders/{{orderId}}
 Authorization: Bearer {{customerToken}}
 
-### All orders (administrator)
-GET {{host}}/orders
-Authorization: Bearer {{adminToken}}
-
-### Paid orders, most expensive first
-GET {{host}}/orders?onlyPaid=true&sortBy=total
-Authorization: Bearer {{adminToken}}
-
-### Order detail with the price breakdown
-GET {{host}}/orders/{{orderId}}
-Authorization: Bearer {{adminToken}}
-
-### Create an order without items
-POST {{host}}/orders
+### Validation errors use ProblemDetails
+POST {{host}}/subscriptions
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
 
-{ "customerName": "Petra Nováková", "items": [] }
-
-### Cancel an order that does not exist
-POST {{host}}/orders/00000000-0000-0000-0000-000000000000/cancel
-Authorization: Bearer {{adminToken}}
-
-### Ship an order that does not exist
-POST {{host}}/orders/00000000-0000-0000-0000-000000000000/ship
-Authorization: Bearer {{adminToken}}
-
-### Register a customer
-POST {{host}}/customers
-Authorization: Bearer {{adminToken}}
-Content-Type: application/json
-
-{ "name": "", "email": "not-an-email" }
+{ "quantity": 0, "intervalDays": 0 }

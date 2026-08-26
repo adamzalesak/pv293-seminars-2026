@@ -33,9 +33,7 @@ public class TransactionBehavior<TRequest, TResponse>(
             var response = await next(cancellationToken);
 
             // Commit does not flush anything: EF only writes on SaveChanges.
-            // Repositories that still save of their own accord land inside
-            // this transaction; the ones we have cleaned up rely on this
-            // line.
+            // This is the only place a command saves.
             await db.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);

@@ -17,3 +17,10 @@ export function daysSince(isoDate: string) {
   now.setHours(0, 0, 0, 0)
   return Math.round((now.getTime() - then.getTime()) / 86_400_000)
 }
+
+// A day in the local calendar as yyyy-MM-dd, which is what <input type="date"> and the API use.
+export function isoDay(daysFromToday = 0) {
+  const d = new Date()
+  d.setDate(d.getDate() + daysFromToday)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
