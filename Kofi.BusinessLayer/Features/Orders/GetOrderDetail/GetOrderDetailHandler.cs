@@ -16,7 +16,12 @@ public class GetOrderDetailHandler(IOrderRepository orders, ICurrentUser user, I
             return null;
         }
 
-        var itemsTotal = pricing.CalculateItemsTotal(order.Items);
+        decimal itemsTotal = 0;
+        foreach (var item in order.Items)
+        {
+            itemsTotal = itemsTotal + item.Product.Price * item.Quantity;
+        }
+
         var shipping = pricing.CalculateShipping(itemsTotal);
 
         return new OrderDetail
@@ -37,7 +42,8 @@ public class GetOrderDetailHandler(IOrderRepository orders, ICurrentUser user, I
                 Id = i.Id,
                 ProductId = i.ProductId,
                 ProductName = i.ProductName,
-                UnitPrice = i.UnitPrice,
+                UnitPrice = i.Product.Price,
+                Currency = "EUR",
                 Quantity = i.Quantity,
             }).ToList(),
         };

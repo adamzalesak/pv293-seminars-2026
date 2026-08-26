@@ -23,9 +23,15 @@ import { Route as AdminCustomersIndexRouteImport } from './routes/admin/customer
 import { Route as AdminCustomersCustomerIdRouteImport } from './routes/admin/customers.$customerId'
 import { Route as AdminOrdersIndexRouteImport } from './routes/admin/orders.index'
 import { Route as AdminOrdersOrderIdRouteImport } from './routes/admin/orders.$orderId'
+import { Route as AdminSubscriptionsIndexRouteImport } from './routes/admin/subscriptions.index'
+import { Route as AdminSubscriptionsSubscriptionIdRouteImport } from './routes/admin/subscriptions.$subscriptionId'
 import { Route as ShopCustomerOrdersIndexRouteImport } from './routes/_shop/_customer/orders.index'
+import { Route as ShopCustomerPaymentCardReturnRouteImport } from './routes/_shop/_customer/payment-card.return'
+import { Route as ShopCustomerSubscriptionsIndexRouteImport } from './routes/_shop/_customer/subscriptions.index'
 import { Route as ShopCustomerOrdersOrderIdIndexRouteImport } from './routes/_shop/_customer/orders.$orderId.index'
 import { Route as ShopCustomerOrdersOrderIdPaymentReturnRouteImport } from './routes/_shop/_customer/orders.$orderId.payment-return'
+import { Route as ShopCustomerSubscriptionsSubscriptionIdIndexRouteImport } from './routes/_shop/_customer/subscriptions.$subscriptionId.index'
+import { Route as ShopCustomerSubscriptionsSubscriptionIdCardReturnRouteImport } from './routes/_shop/_customer/subscriptions.$subscriptionId.card-return'
 
 const ShopRoute = ShopRouteImport.update({
   id: '/_shop',
@@ -96,11 +102,34 @@ const AdminOrdersOrderIdRoute = AdminOrdersOrderIdRouteImport.update({
   path: '/orders/$orderId',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSubscriptionsIndexRoute = AdminSubscriptionsIndexRouteImport.update({
+  id: '/subscriptions/',
+  path: '/subscriptions/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSubscriptionsSubscriptionIdRoute =
+  AdminSubscriptionsSubscriptionIdRouteImport.update({
+    id: '/subscriptions/$subscriptionId',
+    path: '/subscriptions/$subscriptionId',
+    getParentRoute: () => AdminRoute,
+  } as any)
 const ShopCustomerOrdersIndexRoute = ShopCustomerOrdersIndexRouteImport.update({
   id: '/orders/',
   path: '/orders/',
   getParentRoute: () => ShopCustomerRoute,
 } as any)
+const ShopCustomerPaymentCardReturnRoute =
+  ShopCustomerPaymentCardReturnRouteImport.update({
+    id: '/payment-card/return',
+    path: '/payment-card/return',
+    getParentRoute: () => ShopCustomerRoute,
+  } as any)
+const ShopCustomerSubscriptionsIndexRoute =
+  ShopCustomerSubscriptionsIndexRouteImport.update({
+    id: '/subscriptions/',
+    path: '/subscriptions/',
+    getParentRoute: () => ShopCustomerRoute,
+  } as any)
 const ShopCustomerOrdersOrderIdIndexRoute =
   ShopCustomerOrdersOrderIdIndexRouteImport.update({
     id: '/orders/$orderId/',
@@ -111,6 +140,18 @@ const ShopCustomerOrdersOrderIdPaymentReturnRoute =
   ShopCustomerOrdersOrderIdPaymentReturnRouteImport.update({
     id: '/orders/$orderId/payment-return',
     path: '/orders/$orderId/payment-return',
+    getParentRoute: () => ShopCustomerRoute,
+  } as any)
+const ShopCustomerSubscriptionsSubscriptionIdIndexRoute =
+  ShopCustomerSubscriptionsSubscriptionIdIndexRouteImport.update({
+    id: '/subscriptions/$subscriptionId/',
+    path: '/subscriptions/$subscriptionId/',
+    getParentRoute: () => ShopCustomerRoute,
+  } as any)
+const ShopCustomerSubscriptionsSubscriptionIdCardReturnRoute =
+  ShopCustomerSubscriptionsSubscriptionIdCardReturnRouteImport.update({
+    id: '/subscriptions/$subscriptionId/card-return',
+    path: '/subscriptions/$subscriptionId/card-return',
     getParentRoute: () => ShopCustomerRoute,
   } as any)
 
@@ -125,11 +166,17 @@ export interface FileRoutesByFullPath {
   '/products/$productId': typeof ShopProductsProductIdRoute
   '/admin/customers/$customerId': typeof AdminCustomersCustomerIdRoute
   '/admin/orders/$orderId': typeof AdminOrdersOrderIdRoute
+  '/admin/subscriptions/$subscriptionId': typeof AdminSubscriptionsSubscriptionIdRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
   '/admin/orders/': typeof AdminOrdersIndexRoute
+  '/admin/subscriptions/': typeof AdminSubscriptionsIndexRoute
+  '/payment-card/return': typeof ShopCustomerPaymentCardReturnRoute
   '/orders/': typeof ShopCustomerOrdersIndexRoute
+  '/subscriptions/': typeof ShopCustomerSubscriptionsIndexRoute
   '/orders/$orderId/payment-return': typeof ShopCustomerOrdersOrderIdPaymentReturnRoute
+  '/subscriptions/$subscriptionId/card-return': typeof ShopCustomerSubscriptionsSubscriptionIdCardReturnRoute
   '/orders/$orderId/': typeof ShopCustomerOrdersOrderIdIndexRoute
+  '/subscriptions/$subscriptionId/': typeof ShopCustomerSubscriptionsSubscriptionIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof ShopIndexRoute
@@ -141,11 +188,17 @@ export interface FileRoutesByTo {
   '/products/$productId': typeof ShopProductsProductIdRoute
   '/admin/customers/$customerId': typeof AdminCustomersCustomerIdRoute
   '/admin/orders/$orderId': typeof AdminOrdersOrderIdRoute
+  '/admin/subscriptions/$subscriptionId': typeof AdminSubscriptionsSubscriptionIdRoute
   '/admin/customers': typeof AdminCustomersIndexRoute
   '/admin/orders': typeof AdminOrdersIndexRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsIndexRoute
+  '/payment-card/return': typeof ShopCustomerPaymentCardReturnRoute
   '/orders': typeof ShopCustomerOrdersIndexRoute
+  '/subscriptions': typeof ShopCustomerSubscriptionsIndexRoute
   '/orders/$orderId/payment-return': typeof ShopCustomerOrdersOrderIdPaymentReturnRoute
+  '/subscriptions/$subscriptionId/card-return': typeof ShopCustomerSubscriptionsSubscriptionIdCardReturnRoute
   '/orders/$orderId': typeof ShopCustomerOrdersOrderIdIndexRoute
+  '/subscriptions/$subscriptionId': typeof ShopCustomerSubscriptionsSubscriptionIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -161,11 +214,17 @@ export interface FileRoutesById {
   '/_shop/products/$productId': typeof ShopProductsProductIdRoute
   '/admin/customers/$customerId': typeof AdminCustomersCustomerIdRoute
   '/admin/orders/$orderId': typeof AdminOrdersOrderIdRoute
+  '/admin/subscriptions/$subscriptionId': typeof AdminSubscriptionsSubscriptionIdRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
   '/admin/orders/': typeof AdminOrdersIndexRoute
+  '/admin/subscriptions/': typeof AdminSubscriptionsIndexRoute
+  '/_shop/_customer/payment-card/return': typeof ShopCustomerPaymentCardReturnRoute
   '/_shop/_customer/orders/': typeof ShopCustomerOrdersIndexRoute
+  '/_shop/_customer/subscriptions/': typeof ShopCustomerSubscriptionsIndexRoute
   '/_shop/_customer/orders/$orderId/payment-return': typeof ShopCustomerOrdersOrderIdPaymentReturnRoute
+  '/_shop/_customer/subscriptions/$subscriptionId/card-return': typeof ShopCustomerSubscriptionsSubscriptionIdCardReturnRoute
   '/_shop/_customer/orders/$orderId/': typeof ShopCustomerOrdersOrderIdIndexRoute
+  '/_shop/_customer/subscriptions/$subscriptionId/': typeof ShopCustomerSubscriptionsSubscriptionIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -180,11 +239,17 @@ export interface FileRouteTypes {
     | '/products/$productId'
     | '/admin/customers/$customerId'
     | '/admin/orders/$orderId'
+    | '/admin/subscriptions/$subscriptionId'
     | '/admin/customers/'
     | '/admin/orders/'
+    | '/admin/subscriptions/'
+    | '/payment-card/return'
     | '/orders/'
+    | '/subscriptions/'
     | '/orders/$orderId/payment-return'
+    | '/subscriptions/$subscriptionId/card-return'
     | '/orders/$orderId/'
+    | '/subscriptions/$subscriptionId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -196,11 +261,17 @@ export interface FileRouteTypes {
     | '/products/$productId'
     | '/admin/customers/$customerId'
     | '/admin/orders/$orderId'
+    | '/admin/subscriptions/$subscriptionId'
     | '/admin/customers'
     | '/admin/orders'
+    | '/admin/subscriptions'
+    | '/payment-card/return'
     | '/orders'
+    | '/subscriptions'
     | '/orders/$orderId/payment-return'
+    | '/subscriptions/$subscriptionId/card-return'
     | '/orders/$orderId'
+    | '/subscriptions/$subscriptionId'
   id:
     | '__root__'
     | '/_shop'
@@ -215,11 +286,17 @@ export interface FileRouteTypes {
     | '/_shop/products/$productId'
     | '/admin/customers/$customerId'
     | '/admin/orders/$orderId'
+    | '/admin/subscriptions/$subscriptionId'
     | '/admin/customers/'
     | '/admin/orders/'
+    | '/admin/subscriptions/'
+    | '/_shop/_customer/payment-card/return'
     | '/_shop/_customer/orders/'
+    | '/_shop/_customer/subscriptions/'
     | '/_shop/_customer/orders/$orderId/payment-return'
+    | '/_shop/_customer/subscriptions/$subscriptionId/card-return'
     | '/_shop/_customer/orders/$orderId/'
+    | '/_shop/_customer/subscriptions/$subscriptionId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -327,11 +404,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOrdersOrderIdRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/subscriptions/': {
+      id: '/admin/subscriptions/'
+      path: '/subscriptions'
+      fullPath: '/admin/subscriptions/'
+      preLoaderRoute: typeof AdminSubscriptionsIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/subscriptions/$subscriptionId': {
+      id: '/admin/subscriptions/$subscriptionId'
+      path: '/subscriptions/$subscriptionId'
+      fullPath: '/admin/subscriptions/$subscriptionId'
+      preLoaderRoute: typeof AdminSubscriptionsSubscriptionIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_shop/_customer/orders/': {
       id: '/_shop/_customer/orders/'
       path: '/orders'
       fullPath: '/orders/'
       preLoaderRoute: typeof ShopCustomerOrdersIndexRouteImport
+      parentRoute: typeof ShopCustomerRoute
+    }
+    '/_shop/_customer/payment-card/return': {
+      id: '/_shop/_customer/payment-card/return'
+      path: '/payment-card/return'
+      fullPath: '/payment-card/return'
+      preLoaderRoute: typeof ShopCustomerPaymentCardReturnRouteImport
+      parentRoute: typeof ShopCustomerRoute
+    }
+    '/_shop/_customer/subscriptions/': {
+      id: '/_shop/_customer/subscriptions/'
+      path: '/subscriptions'
+      fullPath: '/subscriptions/'
+      preLoaderRoute: typeof ShopCustomerSubscriptionsIndexRouteImport
       parentRoute: typeof ShopCustomerRoute
     }
     '/_shop/_customer/orders/$orderId/': {
@@ -348,22 +453,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopCustomerOrdersOrderIdPaymentReturnRouteImport
       parentRoute: typeof ShopCustomerRoute
     }
+    '/_shop/_customer/subscriptions/$subscriptionId/': {
+      id: '/_shop/_customer/subscriptions/$subscriptionId/'
+      path: '/subscriptions/$subscriptionId'
+      fullPath: '/subscriptions/$subscriptionId/'
+      preLoaderRoute: typeof ShopCustomerSubscriptionsSubscriptionIdIndexRouteImport
+      parentRoute: typeof ShopCustomerRoute
+    }
+    '/_shop/_customer/subscriptions/$subscriptionId/card-return': {
+      id: '/_shop/_customer/subscriptions/$subscriptionId/card-return'
+      path: '/subscriptions/$subscriptionId/card-return'
+      fullPath: '/subscriptions/$subscriptionId/card-return'
+      preLoaderRoute: typeof ShopCustomerSubscriptionsSubscriptionIdCardReturnRouteImport
+      parentRoute: typeof ShopCustomerRoute
+    }
   }
 }
 
 interface ShopCustomerRouteChildren {
   ShopCustomerCheckoutRoute: typeof ShopCustomerCheckoutRoute
+  ShopCustomerPaymentCardReturnRoute: typeof ShopCustomerPaymentCardReturnRoute
   ShopCustomerOrdersIndexRoute: typeof ShopCustomerOrdersIndexRoute
+  ShopCustomerSubscriptionsIndexRoute: typeof ShopCustomerSubscriptionsIndexRoute
   ShopCustomerOrdersOrderIdPaymentReturnRoute: typeof ShopCustomerOrdersOrderIdPaymentReturnRoute
+  ShopCustomerSubscriptionsSubscriptionIdCardReturnRoute: typeof ShopCustomerSubscriptionsSubscriptionIdCardReturnRoute
   ShopCustomerOrdersOrderIdIndexRoute: typeof ShopCustomerOrdersOrderIdIndexRoute
+  ShopCustomerSubscriptionsSubscriptionIdIndexRoute: typeof ShopCustomerSubscriptionsSubscriptionIdIndexRoute
 }
 
 const ShopCustomerRouteChildren: ShopCustomerRouteChildren = {
   ShopCustomerCheckoutRoute: ShopCustomerCheckoutRoute,
+  ShopCustomerPaymentCardReturnRoute: ShopCustomerPaymentCardReturnRoute,
   ShopCustomerOrdersIndexRoute: ShopCustomerOrdersIndexRoute,
+  ShopCustomerSubscriptionsIndexRoute: ShopCustomerSubscriptionsIndexRoute,
   ShopCustomerOrdersOrderIdPaymentReturnRoute:
     ShopCustomerOrdersOrderIdPaymentReturnRoute,
+  ShopCustomerSubscriptionsSubscriptionIdCardReturnRoute:
+    ShopCustomerSubscriptionsSubscriptionIdCardReturnRoute,
   ShopCustomerOrdersOrderIdIndexRoute: ShopCustomerOrdersOrderIdIndexRoute,
+  ShopCustomerSubscriptionsSubscriptionIdIndexRoute:
+    ShopCustomerSubscriptionsSubscriptionIdIndexRoute,
 }
 
 const ShopCustomerRouteWithChildren = ShopCustomerRoute._addFileChildren(
@@ -393,8 +522,10 @@ interface AdminRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   AdminCustomersCustomerIdRoute: typeof AdminCustomersCustomerIdRoute
   AdminOrdersOrderIdRoute: typeof AdminOrdersOrderIdRoute
+  AdminSubscriptionsSubscriptionIdRoute: typeof AdminSubscriptionsSubscriptionIdRoute
   AdminCustomersIndexRoute: typeof AdminCustomersIndexRoute
   AdminOrdersIndexRoute: typeof AdminOrdersIndexRoute
+  AdminSubscriptionsIndexRoute: typeof AdminSubscriptionsIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
@@ -402,8 +533,10 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   AdminCustomersCustomerIdRoute: AdminCustomersCustomerIdRoute,
   AdminOrdersOrderIdRoute: AdminOrdersOrderIdRoute,
+  AdminSubscriptionsSubscriptionIdRoute: AdminSubscriptionsSubscriptionIdRoute,
   AdminCustomersIndexRoute: AdminCustomersIndexRoute,
   AdminOrdersIndexRoute: AdminOrdersIndexRoute,
+  AdminSubscriptionsIndexRoute: AdminSubscriptionsIndexRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)

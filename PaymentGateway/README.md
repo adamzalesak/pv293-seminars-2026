@@ -13,6 +13,13 @@ How the shop uses it:
   asks the provider for the payment's status — it never trusts the URL alone.
 - **Without a browser** (`kofi.http`): `POST /payments/{id}/approve` does what
   the Pay button on the page does.
+- **Saving a card for later.** The shop creates a setup (`POST /setups`) and
+  sends the customer to its `redirectUrl`, where they authorise future
+  charges and pick a test card. The page sends them back with
+  `?setupId=...`; the shop asks for the setup (`GET /setups/{id}`) and keeps
+  its `paymentMethodToken` and `cardLabel` (for example "Visa ending 4242").
+  Without a browser: `POST /setups/{id}/approve` (saves `tok_visa`, or the
+  token in `?token=`) or `/decline`.
 - **Charging a saved card**: `POST /charges`, server to server, with no
   customer present.
 - **Cancelling and refunding.** `POST /payments/{id}/cancel` stops a payment

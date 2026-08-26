@@ -10,6 +10,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<Customer> Customers => Set<Customer>();
 
+    public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<SubscriptionDelivery> SubscriptionDeliveries => Set<SubscriptionDelivery>();
+
     // The shop works in local time, so timestamps are stored without a time
     // zone.
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -35,5 +38,33 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Customer>()
             .HasIndex(c => c.Email)
             .IsUnique();
+        modelBuilder.Entity<Subscription>(subscription =>
+        {
+            subscription.Property(s => s.Id).ValueGeneratedNever();
+            subscription.Property(s => s.Status).HasConversion<string>();
+            subscription.HasOne(s => s.Customer).WithMany(c => c.Subscriptions)
+                .HasForeignKey(s => s.CustomerId).OnDelete(DeleteBehavior.Restrict);
+            subscription.HasOne(s => s.Product).WithMany()
+                .HasForeignKey(s => s.ProductId).OnDelete(DeleteBehavior.Restrict);
+            subscription.HasMany(s => s.Deliveries).WithOne(d => d.Subscription)
+                .HasForeignKey(d => d.SubscriptionId);
+        });
+        modelBuilder.Entity<SubscriptionDelivery>(delivery =>
+        {
+            // IDs are assigned by the application, including rows appended to
+            // an already tracked collection.
+            delivery.Property(d => d.Id).ValueGeneratedNever();
+            delivery.Property(d => d.Status).HasConversion<string>();
+            delivery.HasOne(d => d.Product).WithMany()
+                .HasForeignKey(d => d.ProductId).OnDelete(DeleteBehavior.Restrict);
+            delivery.HasOne(d => d.Order).WithMany()
+                .HasForeignKey(d => d.OrderId).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<SubscriptionDeliveryExtra>(extra =>
+        {
+            extra.HasKey(e => new { e.DeliveryId, e.ProductId });
+            extra.HasOne(e => e.Delivery).WithMany(d => d.Extras).HasForeignKey(e => e.DeliveryId);
+            extra.Property(e => e.UnitPrice).HasPrecision(18, 2);
+        });
     }
 }

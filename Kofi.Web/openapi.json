@@ -6,7 +6,7 @@
     },
     "servers": [
         {
-            "url": "http://localhost:5277/"
+            "url": "http://localhost:5399/"
         }
     ],
     "paths": {
@@ -805,10 +805,563 @@
                     }
                 }
             }
+        },
+        "/subscriptions": {
+            "get": {
+                "tags": [
+                    "Subscriptions"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/SubscriptionSummary"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Subscriptions"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SubscribeCommand"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SubscribeResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/subscriptions/{id}": {
+            "get": {
+                "tags": [
+                    "Subscriptions"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SubscriptionDetail"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
+        "/subscriptions/{id}/card-setup": {
+            "post": {
+                "tags": [
+                    "Subscriptions"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StartCardSetupResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/subscriptions/{id}/activate": {
+            "post": {
+                "tags": [
+                    "Subscriptions"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActivateSubscriptionResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/subscriptions/{id}/card-return": {
+            "get": {
+                "tags": [
+                    "Subscriptions"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "setupId",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActivateSubscriptionResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/subscriptions/process-due": {
+            "post": {
+                "tags": [
+                    "Subscriptions"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProcessDueDeliveriesResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/subscriptions/{id}/pause": {
+            "post": {
+                "tags": [
+                    "Subscriptions"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/subscriptions/{id}/resume": {
+            "post": {
+                "tags": [
+                    "Subscriptions"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ResumeSubscriptionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/subscriptions/{id}/skip": {
+            "post": {
+                "tags": [
+                    "Subscriptions"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/subscriptions/{id}/cancel": {
+            "post": {
+                "tags": [
+                    "Subscriptions"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/subscriptions/{id}/deliveries/{deliveryId}/extras": {
+            "post": {
+                "tags": [
+                    "Subscriptions"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "deliveryId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AddDeliveryExtraRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/subscriptions/{id}/deliveries/{deliveryId}/extras/{productId}": {
+            "delete": {
+                "tags": [
+                    "Subscriptions"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "deliveryId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/subscriptions/{id}/deliveries/{deliveryId}/prepare": {
+            "post": {
+                "tags": [
+                    "Subscriptions"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "deliveryId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/subscriptions/{id}/plan": {
+            "put": {
+                "tags": [
+                    "Subscriptions"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ChangePlanRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/payment-card": {
+            "get": {
+                "tags": [
+                    "Payment card"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaymentCard"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/payment-card/setup": {
+            "post": {
+                "tags": [
+                    "Payment card"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StartPaymentCardChangeResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/payment-card/return": {
+            "get": {
+                "tags": [
+                    "Payment card"
+                ],
+                "parameters": [
+                    {
+                        "name": "setupId",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConfirmPaymentCardChangeResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
         "schemas": {
+            "ActivateSubscriptionResponse": {
+                "required": [
+                    "status",
+                    "cardSetupStatus"
+                ],
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string"
+                    },
+                    "cardSetupStatus": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "AddDeliveryExtraRequest": {
+                "type": "object",
+                "properties": {
+                    "productId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "quantity": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
             "AddItemToOrderRequest": {
                 "type": "object",
                 "properties": {
@@ -839,6 +1392,24 @@
                     },
                     "status": {
                         "type": "string"
+                    }
+                }
+            },
+            "ConfirmPaymentCardChangeResponse": {
+                "required": [
+                    "cardSetupStatus",
+                    "label"
+                ],
+                "type": "object",
+                "properties": {
+                    "cardSetupStatus": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 }
             },
@@ -1034,6 +1605,47 @@
                     }
                 }
             },
+            "DueDeliveryFailure": {
+                "required": [
+                    "deliveryId",
+                    "reason"
+                ],
+                "type": "object",
+                "properties": {
+                    "deliveryId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "reason": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ChangePlanRequest": {
+                "type": "object",
+                "properties": {
+                    "productId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "quantity": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "intervalDays": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
             "ChangeProductPriceRequest": {
                 "type": "object",
                 "properties": {
@@ -1175,6 +1787,7 @@
                     "productId",
                     "productName",
                     "unitPrice",
+                    "currency",
                     "quantity"
                 ],
                 "type": "object",
@@ -1197,6 +1810,9 @@
                             "string"
                         ],
                         "format": "double"
+                    },
+                    "currency": {
+                        "type": "string"
                     },
                     "quantity": {
                         "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -1280,6 +1896,42 @@
                             "string"
                         ],
                         "format": "int32"
+                    }
+                }
+            },
+            "PaymentCard": {
+                "required": [
+                    "label"
+                ],
+                "type": "object",
+                "properties": {
+                    "label": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "ProcessDueDeliveriesResponse": {
+                "required": [
+                    "prepared",
+                    "failed"
+                ],
+                "type": "object",
+                "properties": {
+                    "prepared": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    "failed": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DueDeliveryFailure"
+                        }
                     }
                 }
             },
@@ -1450,6 +2102,31 @@
                     }
                 }
             },
+            "ResumeSubscriptionRequest": {
+                "type": "object",
+                "properties": {
+                    "nextDeliveryOn": {
+                        "type": "string",
+                        "format": "date"
+                    }
+                }
+            },
+            "StartCardSetupResponse": {
+                "required": [
+                    "setupId",
+                    "redirectUrl"
+                ],
+                "type": "object",
+                "properties": {
+                    "setupId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "redirectUrl": {
+                        "type": "string"
+                    }
+                }
+            },
             "StartOrderPaymentResponse": {
                 "required": [
                     "paymentId",
@@ -1463,6 +2140,317 @@
                     },
                     "redirectUrl": {
                         "type": "string"
+                    }
+                }
+            },
+            "StartPaymentCardChangeResponse": {
+                "required": [
+                    "setupId",
+                    "redirectUrl"
+                ],
+                "type": "object",
+                "properties": {
+                    "setupId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "redirectUrl": {
+                        "type": "string"
+                    }
+                }
+            },
+            "SubscribeCommand": {
+                "type": "object",
+                "properties": {
+                    "productId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "quantity": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "intervalDays": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "firstDeliveryOn": {
+                        "type": "string",
+                        "format": "date"
+                    }
+                }
+            },
+            "SubscribeResponse": {
+                "required": [
+                    "id",
+                    "status"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                }
+            },
+            "SubscriptionDeliveryDetail": {
+                "required": [
+                    "extras",
+                    "id",
+                    "productId",
+                    "quantity",
+                    "unitPrice",
+                    "currency",
+                    "scheduledFor",
+                    "orderId",
+                    "orderStatus",
+                    "status"
+                ],
+                "type": "object",
+                "properties": {
+                    "extras": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SubscriptionExtraDetail"
+                        }
+                    },
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "productId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "quantity": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "unitPrice": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "currency": {
+                        "type": "string"
+                    },
+                    "scheduledFor": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "orderId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "uuid"
+                    },
+                    "orderStatus": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                }
+            },
+            "SubscriptionDetail": {
+                "required": [
+                    "id",
+                    "customerId",
+                    "productId",
+                    "productName",
+                    "status",
+                    "quantity",
+                    "unitPrice",
+                    "currency",
+                    "intervalDays",
+                    "createdAt",
+                    "activatedAt",
+                    "pausedAt",
+                    "cancelledAt",
+                    "nextDeliveryAt",
+                    "deliveries"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "customerId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "productId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "productName": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "quantity": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "unitPrice": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "currency": {
+                        "type": "string"
+                    },
+                    "intervalDays": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "activatedAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "pausedAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "cancelledAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "nextDeliveryAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "deliveries": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SubscriptionDeliveryDetail"
+                        }
+                    }
+                }
+            },
+            "SubscriptionExtraDetail": {
+                "required": [
+                    "productId",
+                    "productName",
+                    "quantity",
+                    "unitPrice",
+                    "currency"
+                ],
+                "type": "object",
+                "properties": {
+                    "productId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "productName": {
+                        "type": "string"
+                    },
+                    "quantity": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "unitPrice": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "currency": {
+                        "type": "string"
+                    }
+                }
+            },
+            "SubscriptionSummary": {
+                "required": [
+                    "id",
+                    "customerId",
+                    "customerName",
+                    "productName",
+                    "status",
+                    "nextDeliveryAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "customerId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "customerName": {
+                        "type": "string"
+                    },
+                    "productName": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "nextDeliveryAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
                     }
                 }
             },
@@ -1536,6 +2524,12 @@
         },
         {
             "name": "Customers"
+        },
+        {
+            "name": "Subscriptions"
+        },
+        {
+            "name": "Payment card"
         }
     ]
 }

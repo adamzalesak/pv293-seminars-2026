@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useMatchRoute, useNavigate } from '@tanstack/react-router'
-import { LayoutDashboard, LogOut, Package, Store, Users } from 'lucide-react'
+import { LayoutDashboard, LogOut, Package, Repeat, Store, Users } from 'lucide-react'
 import { AccessDenied } from '@/components/states'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Wordmark } from '@/components/wordmark'
@@ -30,6 +30,7 @@ export const Route = createFileRoute('/admin')({
 const nav = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard, exact: true },
   { to: '/admin/orders', label: 'Orders', icon: Package, exact: false },
+  { to: '/admin/subscriptions', label: 'Subscriptions', icon: Repeat, exact: false },
   { to: '/admin/products', label: 'Products', icon: Store, exact: false },
   { to: '/admin/customers', label: 'Customers', icon: Users, exact: false },
 ] as const

@@ -6,6 +6,6 @@ public class ChangeProductPriceValidator : AbstractValidator<ChangeProductPriceC
 {
     public ChangeProductPriceValidator()
     {
-        RuleFor(c => c.Price).GreaterThan(0);
+        RuleFor(c => c.Price).MustBeAPrice();
     }
 }

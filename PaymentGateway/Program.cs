@@ -6,6 +6,7 @@ using PaymentGateway;
 // Stand-in for an external card payment provider. See README.md.
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<PaymentStore>();
+builder.Services.AddSingleton<SetupStore>();
 builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
@@ -86,6 +87,70 @@ app.MapPost("/charges", async (ChargeRequest request, PaymentStore store) =>
     return Results.Ok(payment);
 });
 
+// Saving a card for later payments: created by the shop's server, then the
+// customer authorises it on the provider's page. The shop charges the saved
+// card later through /charges.
+app.MapPost("/setups", (CreateSetupRequest request, SetupStore store, HttpRequest http) =>
+{
+    var setup = store.GetOrCreate(request.IdempotencyKey, () => new CardSetup
+    {
+        Id = Guid.NewGuid(),
+        Reference = request.Reference,
+        ReturnUrl = request.ReturnUrl,
+        CreatedAt = DateTime.UtcNow,
+        Status = SetupStatus.Created,
+    });
+    setup.RedirectUrl ??= $"{http.Scheme}://{http.Host}/setup/{setup.Id}";
+    return Results.Ok(setup);
+});
+
+app.MapGet("/setups/{id:guid}", (Guid id, SetupStore store) =>
+    store.Find(id) is { } setup ? Results.Ok(setup) : Results.NotFound());
+
+// The provider's page where the customer agrees to future charges. Real card
+// entry would happen here; the test cards stand for what the bank will do.
+app.MapGet("/setup/{id:guid}", (Guid id, SetupStore store) =>
+{
+    var setup = store.Find(id);
+    if (setup == null)
+    {
+        return Results.NotFound();
+    }
+    var reference = WebUtility.HtmlEncode(setup.Reference);
+    return Results.Content($"""
+        <!doctype html>
+        <html><head><meta charset="utf-8"><title>Save card</title></head>
+        <body style="font-family: sans-serif; max-width: 28rem; margin: 3rem auto">
+          <h1>Save a card for future payments</h1>
+          <p>The shop may charge this card for future deliveries without asking you again. You can withdraw this by cancelling with the shop.</p>
+          <p>Reference: {reference}</p>
+          <p>Status: {setup.Status}</p>
+          <form method="post" action="/setup/{setup.Id}/approve">
+            <label>Test card
+              <select name="token">
+                <option value="tok_visa">Visa ending 4242 (payments approved)</option>
+                <option value="tok_declined">Visa ending 0002 (payments declined)</option>
+              </select>
+            </label>
+            <button>Authorise</button>
+          </form>
+          <form method="post" action="/setup/{setup.Id}/decline"><button>Decline</button></form>
+        </body></html>
+        """, "text/html");
+});
+
+app.MapPost("/setup/{id:guid}/approve", (Guid id, HttpRequest http, SetupStore store) =>
+    Return(store.Decide(id, SetupStatus.Succeeded, http.Form["token"].FirstOrDefault() ?? "tok_visa")));
+app.MapPost("/setup/{id:guid}/decline", (Guid id, SetupStore store) =>
+    Return(store.Decide(id, SetupStatus.Declined, null)));
+
+// The same decisions without a browser, for kofi.http; tok_visa unless a
+// test card is named.
+app.MapPost("/setups/{id:guid}/approve", (Guid id, string? token, SetupStore store) =>
+    store.Decide(id, SetupStatus.Succeeded, token ?? "tok_visa") is { } setup ? Results.Ok(setup) : Results.NotFound());
+app.MapPost("/setups/{id:guid}/decline", (Guid id, SetupStore store) =>
+    store.Decide(id, SetupStatus.Declined, null) is { } setup ? Results.Ok(setup) : Results.NotFound());
+
 app.MapGet("/", (PaymentStore store) =>
 {
     var rows = string.Join("", store.All().Select(p =>
@@ -114,6 +179,9 @@ static IResult Decide(Guid id, PaymentStore store, PaymentStatus status)
     }
     return Results.Redirect($"{payment.ReturnUrl}?paymentId={payment.Id}");
 }
+
+static IResult Return(CardSetup? setup) =>
+    setup == null ? Results.NotFound() : Results.Redirect($"{setup.ReturnUrl}?setupId={setup.Id}");
 
 static IResult Settle(Guid id, PaymentStore store, PaymentStatus status) =>
     store.Move(id, PaymentStatus.Created, status) is { } payment ? Results.Ok(payment) : Results.NotFound();

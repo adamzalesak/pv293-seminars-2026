@@ -6,6 +6,7 @@ test('a customer buys coffee and pays for it', async ({ page }) => {
 
   await page.goto('/')
   await page.getByRole('button', { name: 'Add Kolumbie Huila 250 g to cart' }).click()
+  await page.goto('/?q=Kompakt')
   await page.getByRole('button', { name: 'Add Ruční mlýnek Kompakt to cart' }).click()
   await page.getByRole('button', { name: /Cart, 2 items/ }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Go to checkout' }).click()

@@ -11,5 +11,12 @@ public class Customer
     public DateTime RegisteredAt { get; set; }
     public bool IsVip { get; set; }
 
+    // A token from the payment provider for the saved card, never the card
+    // itself, and what the customer may see about it ("Visa ending 4242").
+    public string? PaymentMethodToken { get; set; }
+    public string? PaymentCardLabel { get; set; }
+
+    public List<Subscription> Subscriptions { get; set; } = new();
+
     public List<Order> Orders { get; set; } = new();
 }
