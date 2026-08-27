@@ -1,8 +1,8 @@
-using Kofi.DataAccessLayer.Models;
+using Kofi.Domain.Subscriptions;
 
 namespace Kofi.BusinessLayer.Services;
 
 public interface ISubscriptionOrderService
 {
-    Task Create(Guid customerId, Guid orderId, DateTime now, IReadOnlyList<SubscriptionOrderLine> lines);
+    Task Create(Guid customerId, DateTime now, PreparedDelivery delivery);
 }

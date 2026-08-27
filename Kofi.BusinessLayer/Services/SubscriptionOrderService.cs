@@ -1,6 +1,7 @@
 using Kofi.BusinessLayer.Abstractions;
 using Kofi.DataAccessLayer.Models;
 using Kofi.DataAccessLayer.Repositories;
+using Kofi.Domain.Subscriptions;
 
 namespace Kofi.BusinessLayer.Services;
 
@@ -8,30 +9,30 @@ public class SubscriptionOrderService(
     ICustomerRepository customers, IProductRepository products, IOrderRepository orders, IStockService stock,
     IPricingService pricing, IPaymentGatewayClient payments) : ISubscriptionOrderService
 {
-    public async Task Create(Guid customerId, Guid orderId, DateTime now, IReadOnlyList<SubscriptionOrderLine> lines)
+    public async Task Create(Guid customerId, DateTime now, PreparedDelivery delivery)
     {
         var customer = await customers.GetById(customerId) ?? throw new DomainException("Customer not found");
         var reservations = new List<(Product Product, int Quantity)>();
-        foreach (var group in lines.GroupBy(l => l.ProductId))
+        foreach (var group in delivery.Lines.GroupBy(l => l.ProductId))
         {
             var product = await products.GetById(group.Key) ?? throw new DomainException("Product not found");
             if (!product.IsActive) throw new DomainException("A delivery product is no longer available");
-            var quantity = group.Sum(l => l.Quantity);
+            var quantity = group.Sum(l => l.Quantity.Value);
             if (product.StockQuantity < quantity) throw new DomainException("Not enough stock for the complete delivery");
             reservations.Add((product, quantity));
         }
         var order = new Order
         {
-            Id = orderId, CustomerId = customer.Id, CustomerName = customer.Name,
+            Id = delivery.OrderId, CustomerId = customer.Id, CustomerName = customer.Name,
             CustomerEmail = customer.Email, Street = customer.Street, City = customer.City,
             Zip = customer.Zip, CreatedAt = now,
         };
-        foreach (var line in lines)
+        foreach (var line in delivery.Lines)
         {
             order.Items.Add(new OrderItem
             {
                 Id = Guid.NewGuid(), OrderId = order.Id, ProductId = line.ProductId,
-                ProductName = line.ProductName, Quantity = line.Quantity, UnitPrice = line.UnitPrice,
+                ProductName = line.ProductName, Quantity = line.Quantity.Value, UnitPrice = line.UnitPrice.Amount,
             });
         }
         // A subscription is paid with the customer's saved card.

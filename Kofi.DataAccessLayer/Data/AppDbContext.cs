@@ -1,5 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Kofi.DataAccessLayer.Models;
+using Kofi.Domain;
+using Kofi.Domain.Subscriptions;
 
 namespace Kofi.DataAccessLayer.Data;
 
@@ -11,7 +14,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Customer> Customers => Set<Customer>();
 
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
-    public DbSet<SubscriptionDelivery> SubscriptionDeliveries => Set<SubscriptionDelivery>();
 
     // The shop works in local time, so timestamps are stored without a time
     // zone.
@@ -38,33 +40,81 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Customer>()
             .HasIndex(c => c.Email)
             .IsUnique();
-        modelBuilder.Entity<Subscription>(subscription =>
+
+        modelBuilder.ApplyConfiguration(new Configurations.SubscriptionConfiguration());
+
+        // The version a command read goes into the WHERE clause of the update,
+        // so the second of two concurrent writes finds no row and fails
+        // instead of overwriting the first.
+        foreach (var root in modelBuilder.Model.GetEntityTypes()
+                     .Where(type => typeof(AggregateRoot).IsAssignableFrom(type.ClrType)))
         {
-            subscription.Property(s => s.Id).ValueGeneratedNever();
-            subscription.Property(s => s.Status).HasConversion<string>();
-            subscription.HasOne(s => s.Customer).WithMany(c => c.Subscriptions)
-                .HasForeignKey(s => s.CustomerId).OnDelete(DeleteBehavior.Restrict);
-            subscription.HasOne(s => s.Product).WithMany()
-                .HasForeignKey(s => s.ProductId).OnDelete(DeleteBehavior.Restrict);
-            subscription.HasMany(s => s.Deliveries).WithOne(d => d.Subscription)
-                .HasForeignKey(d => d.SubscriptionId);
-        });
-        modelBuilder.Entity<SubscriptionDelivery>(delivery =>
+            modelBuilder.Entity(root.ClrType)
+                .Property(nameof(AggregateRoot.Version))
+                .IsConcurrencyToken();
+        }
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        MoveChangedAggregatesOn();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        MoveChangedAggregatesOn();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    // A command may change only a delivery or an extra, and then only their
+    // rows are updated. The root's version has to move as well, or a
+    // concurrent write to the same aggregate would not notice.
+    private void MoveChangedAggregatesOn()
+    {
+        ChangeTracker.DetectChanges();
+
+        var roots = ChangeTracker.Entries()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .Select(RootOf)
+            .Where(root => root is { State: EntityState.Unchanged or EntityState.Modified })
+            .Select(root => root!.Entity)
+            .Distinct()
+            .ToList();
+
+        foreach (var root in roots)
         {
-            // IDs are assigned by the application, including rows appended to
-            // an already tracked collection.
-            delivery.Property(d => d.Id).ValueGeneratedNever();
-            delivery.Property(d => d.Status).HasConversion<string>();
-            delivery.HasOne(d => d.Product).WithMany()
-                .HasForeignKey(d => d.ProductId).OnDelete(DeleteBehavior.Restrict);
-            delivery.HasOne(d => d.Order).WithMany()
-                .HasForeignKey(d => d.OrderId).OnDelete(DeleteBehavior.Restrict);
-        });
-        modelBuilder.Entity<SubscriptionDeliveryExtra>(extra =>
+            var version = Entry(root).Property(nameof(AggregateRoot.Version));
+            version.CurrentValue = (int)version.OriginalValue! + 1;
+        }
+    }
+
+    // An owned part carries its owner's key; follow it up to the root.
+    private EntityEntry? RootOf(EntityEntry entry)
+    {
+        while (entry.Entity is not AggregateRoot)
         {
-            extra.HasKey(e => new { e.DeliveryId, e.ProductId });
-            extra.HasOne(e => e.Delivery).WithMany(d => d.Extras).HasForeignKey(e => e.DeliveryId);
-            extra.Property(e => e.UnitPrice).HasPrecision(18, 2);
-        });
+            var ownership = entry.Metadata.FindOwnership();
+            if (ownership is null)
+            {
+                return null;
+            }
+
+            var key = ownership.Properties.Select(p => entry.Property(p.Name).CurrentValue).ToList();
+            var owner = ChangeTracker.Entries().FirstOrDefault(candidate =>
+                candidate.Metadata == ownership.PrincipalEntityType
+                && ownership.PrincipalKey.Properties
+                    .Select(p => candidate.Property(p.Name).CurrentValue)
+                    .SequenceEqual(key));
+            if (owner is null)
+            {
+                return null;
+            }
+
+            entry = owner;
+        }
+
+        return entry;
     }
 }

@@ -2,7 +2,8 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Kofi.BusinessLayer.Abstractions;
-using Kofi.DataAccessLayer.Models;
+using Kofi.Domain;
+using Kofi.Domain.Subscriptions;
 using Kofi.DataAccessLayer.Repositories;
 using Kofi.BusinessLayer.Features.Subscriptions.PrepareDelivery;
 
@@ -50,7 +51,7 @@ public class DueDeliveryProcessor(ISubscriptionRepository subscriptions, IServic
                 }, ct);
                 prepared.Add(delivery.DeliveryId);
             }
-            catch (DomainException ex)
+            catch (Exception ex) when (ex is DomainException or DomainRuleException or NotFoundException)
             {
                 failed.Add(new DueDeliveryFailure { DeliveryId = delivery.DeliveryId, Reason = ex.Message });
             }

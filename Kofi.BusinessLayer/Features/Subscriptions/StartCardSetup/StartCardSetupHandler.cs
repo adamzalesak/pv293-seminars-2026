@@ -1,6 +1,6 @@
 using Kofi.BusinessLayer.Abstractions;
 using Kofi.BusinessLayer.Services;
-using Kofi.DataAccessLayer.Models;
+using Kofi.Domain.Subscriptions;
 using Kofi.DataAccessLayer.Repositories;
 
 namespace Kofi.BusinessLayer.Features.Subscriptions.StartCardSetup;
@@ -12,7 +12,7 @@ public class StartCardSetupHandler(ISubscriptionRepository subscriptions, IPayme
 {
     public async Task<StartCardSetupResponse> Handle(StartCardSetupCommand command, CancellationToken ct)
     {
-        var subscription = await subscriptions.GetById(command.Id) ?? throw new DomainException("Subscription not found");
+        var subscription = await subscriptions.GetById(command.Id) ?? throw new NotFoundException("Subscription not found");
         if (subscription.Status != SubscriptionStatus.Incomplete)
             throw new DomainException("Only an incomplete subscription needs a card");
 

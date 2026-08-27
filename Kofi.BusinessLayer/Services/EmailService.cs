@@ -29,10 +29,10 @@ public class EmailService(ILogger<EmailService> logger, IConfiguration config, I
         await Send(order.CustomerEmail, $"Your KoFI order {order.Id}", body);
     }
 
-    public async Task SendSubscriptionActivated(Subscription subscription)
+    public async Task SendSubscriptionActivated(WelcomeEmail welcome)
     {
-        await Send(subscription.Customer.Email, "Your subscription is active",
-            $"Subscription {subscription.Id} is active: {subscription.Quantity} x {subscription.ProductName} every {subscription.IntervalDays} days.");
+        await Send(welcome.CustomerEmail, "Your subscription is active",
+            $"Subscription {welcome.SubscriptionId} is active: {welcome.Quantity} x {welcome.ProductName} every {welcome.IntervalDays} days.");
     }
 
     public async Task SendOrderCancelled(Order order)

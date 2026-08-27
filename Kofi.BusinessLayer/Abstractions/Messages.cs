@@ -1,4 +1,5 @@
 using MediatR;
+using Kofi.Domain;
 
 namespace Kofi.BusinessLayer.Abstractions;
 
@@ -21,3 +22,8 @@ public interface ICommandHandler<in TCommand> : IRequestHandler<TCommand>
 
 public interface IQueryHandler<in TQuery, TResponse> : IRequestHandler<TQuery, TResponse>
     where TQuery : IQuery<TResponse>;
+
+// A reaction to something an aggregate decided. It runs inside the command
+// that raised the event, before SaveChanges.
+public interface IDomainEventHandler<in TEvent> : INotificationHandler<TEvent>
+    where TEvent : IDomainEvent;

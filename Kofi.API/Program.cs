@@ -43,6 +43,8 @@ builder.Services.AddMediatR(cfg =>
     cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
     cfg.AddOpenBehavior(typeof(AuditBehavior<,>));
     cfg.AddOpenBehavior(typeof(TransactionBehavior<,>));
+    cfg.AddOpenBehavior(typeof(DomainEventBehavior<,>));
+    cfg.NotificationPublisherType = typeof(TransactionalDomainEventPublisher);
 });
 
 builder.Services.AddValidatorsFromAssemblyContaining<CreateOrderCommand>();

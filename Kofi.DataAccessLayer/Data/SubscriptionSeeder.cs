@@ -1,4 +1,6 @@
 using Kofi.DataAccessLayer.Models;
+using Kofi.Domain.Shared;
+using Kofi.Domain.Subscriptions;
 
 namespace Kofi.DataAccessLayer.Data;
 
@@ -7,7 +9,9 @@ public static class SubscriptionSeeder
     public static void Seed(AppDbContext db)
     {
         if (db.Subscriptions.Any())
+        {
             return;
+        }
 
         var coffee = db.Products.Single(p => p.Name == "Etiopie Yirgacheffe 250 g");
         var filters = db.Products.Single(p => p.Name == "Papírové filtry V60 02, 100 ks");
@@ -23,53 +27,46 @@ public static class SubscriptionSeeder
         };
         db.Customers.Add(miriam);
 
-        AddHistory(db, coffee, petra, Guid.Parse("40000000-0000-0000-0000-000000000001"),
-            SubscriptionStatus.Active, now.AddDays(-42));
-        var paused = AddHistory(db, coffee, jan, Guid.Parse("40000000-0000-0000-0000-000000000002"),
-            SubscriptionStatus.Paused, now.AddDays(-70));
-        AddHistory(db, coffee, eva, Guid.Parse("40000000-0000-0000-0000-000000000003"),
-            SubscriptionStatus.Cancelled, now.AddDays(-70));
+        // The seed goes through the same operations the application uses, so
+        // it cannot put a subscription into a state the rules forbid.
+        // Petra has a delivery due today; Jan is paused and Eva is cancelled.
+        db.Subscriptions.Add(Running(db, coffee, petra, now.AddDays(-42), now.AddDays(-21)));
+
+        var paused = Running(db, coffee, jan, now.AddDays(-70));
+        paused.Pause(now.AddDays(-2));
         var waiting = paused.Deliveries.Single(d => d.Status == DeliveryStatus.Scheduled);
-        waiting.Extras.Add(new SubscriptionDeliveryExtra
-        {
-            DeliveryId = waiting.Id, ProductId = filters.Id, ProductName = filters.Name,
-            Quantity = 1, UnitPrice = filters.Price, Currency = "EUR",
-        });
+        paused.AddExtra(waiting.Id, filters.Id, filters.Name, new Quantity(1), new Price(filters.Price, "EUR"));
+        db.Subscriptions.Add(paused);
+
+        var cancelled = Running(db, coffee, eva, now.AddDays(-70));
+        cancelled.Cancel(now.AddDays(-10));
+        db.Subscriptions.Add(cancelled);
+
         db.SaveChanges();
     }
 
-    private static Subscription AddHistory(AppDbContext db, Product coffee, Customer customer, Guid id,
-        SubscriptionStatus status, DateTime orderedAt)
+    private static Subscription Running(
+        AppDbContext db, Product coffee, Customer customer, params DateTime[] orderedAt)
     {
-        var now = DateTime.Now;
-        var subscription = new Subscription
+        var subscription = Subscription.Create(
+            customer.Id,
+            new Plan(coffee.Id, coffee.Name, new Quantity(2), intervalDays: 21, new Price(coffee.Price, "EUR")),
+            firstDeliveryOn: orderedAt[0],
+            now: orderedAt[0].AddDays(-1));
+        subscription.Activate(orderedAt[0]);
+
+        foreach (var day in orderedAt)
         {
-            Id = id, CustomerId = customer.Id, ProductId = coffee.Id, ProductName = coffee.Name,
-            UnitPrice = coffee.Price, Quantity = 2, IntervalDays = 21, Status = status,
-            CreatedAt = orderedAt.AddDays(-1), ActivatedAt = orderedAt,
-            PausedAt = status == SubscriptionStatus.Paused ? now.AddDays(-2) : null,
-            CancelledAt = status == SubscriptionStatus.Cancelled ? now.AddDays(-10) : null,
-            NextDeliveryAt = status == SubscriptionStatus.Cancelled ? null :
-                status == SubscriptionStatus.Active ? now.Date : now.AddDays(17),
-        };
-        AddShippedOrder(db, subscription, coffee, customer, orderedAt);
-        if (status != SubscriptionStatus.Cancelled)
-        {
-            // A later delivery has also shipped; the next one is still planned.
-            AddShippedOrder(db, subscription, coffee, customer,
-                status == SubscriptionStatus.Active ? now.AddDays(-21) : now.AddDays(-6));
-            subscription.Deliveries.Add(new SubscriptionDelivery
-            {
-                Id = Guid.NewGuid(), SubscriptionId = id, ProductId = coffee.Id,
-                Quantity = 2, UnitPrice = coffee.Price, ScheduledFor = subscription.NextDeliveryAt!.Value,
-            });
+            var order = ShippedOrder(db, coffee, customer, day);
+            var due = subscription.Deliveries.Single(d => d.Status == DeliveryStatus.Scheduled);
+            subscription.PrepareDelivery(due.Id, order.Id, day);
         }
-        db.Subscriptions.Add(subscription);
+
         return subscription;
     }
 
-    private static void AddShippedOrder(AppDbContext db, Subscription subscription, Product coffee,
-        Customer customer, DateTime orderedAt)
+    private static Order ShippedOrder(
+        AppDbContext db, Product coffee, Customer customer, DateTime orderedAt)
     {
         var order = new Order
         {
@@ -83,11 +80,6 @@ public static class SubscriptionSeeder
             ProductName = coffee.Name, UnitPrice = coffee.Price, Quantity = 2,
         });
         db.Orders.Add(order);
-        subscription.Deliveries.Add(new SubscriptionDelivery
-        {
-            Id = Guid.NewGuid(), SubscriptionId = subscription.Id, ProductId = coffee.Id,
-            Quantity = 2, UnitPrice = coffee.Price, ScheduledFor = orderedAt,
-            Status = DeliveryStatus.Ready, OrderId = order.Id,
-        });
+        return order;
     }
 }

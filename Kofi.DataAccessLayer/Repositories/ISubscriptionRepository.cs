@@ -1,4 +1,4 @@
-using Kofi.DataAccessLayer.Models;
+using Kofi.Domain.Subscriptions;
 
 namespace Kofi.DataAccessLayer.Repositories;
 

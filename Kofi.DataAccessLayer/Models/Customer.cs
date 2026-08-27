@@ -16,7 +16,5 @@ public class Customer
     public string? PaymentMethodToken { get; set; }
     public string? PaymentCardLabel { get; set; }
 
-    public List<Subscription> Subscriptions { get; set; } = new();
-
     public List<Order> Orders { get; set; } = new();
 }
