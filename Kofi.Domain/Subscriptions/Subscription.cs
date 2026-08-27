@@ -64,9 +64,11 @@ public class Subscription : AggregateRoot
 
     public void Pause(DateTime now)
     {
-        // TODO: only an Active subscription can pause; the waiting delivery and
-        // its extras stay; remember when it paused. Helper: RejectUnless.
-        throw new NotImplementedException();
+        RejectUnless(Status == SubscriptionStatus.Active,
+            "Only an active subscription can be paused.");
+
+        Status = SubscriptionStatus.Paused;
+        PausedAt = now;
     }
 
     // The customer says when the next delivery should come; today is fine.
@@ -116,25 +118,35 @@ public class Subscription : AggregateRoot
 
     public void ChangePlan(Plan plan)
     {
-        // TODO: an Active or Paused subscription changes its plan; only Scheduled
-        // deliveries follow it and keep their dates and extras. Helpers:
-        // RejectUnless, FollowPlan.
-        throw new NotImplementedException();
+        RejectUnless(Status is SubscriptionStatus.Active or SubscriptionStatus.Paused,
+            "Only a running subscription can change its plan.");
+
+        Plan = plan;
+
+        // Deliveries already being fulfilled keep what was agreed for them;
+        // the ones still only planned follow the new plan but keep their
+        // date. The new interval counts from the next delivery on.
+        foreach (var delivery in _deliveries.Where(d => d.IsScheduled).ToList())
+        {
+            delivery.FollowPlan(plan);
+        }
     }
 
     public void SkipNextDelivery(DateTime now)
     {
-        // TODO: only an Active subscription skips its next Scheduled delivery, even a
-        // due one; it stays in history and the next one is planned an interval
-        // later from the plan alone. Helpers: RejectUnless, NextScheduled, Schedule.
-        throw new NotImplementedException();
+        RejectUnless(Status == SubscriptionStatus.Active,
+            "Only an active subscription can skip a delivery.");
+
+        var next = NextScheduled()
+            ?? throw new DomainRuleException("There is no delivery left to skip.");
+
+        next.Skip();
+        Schedule(next.ScheduledFor.AddDays(Plan.IntervalDays));
     }
 
     public void AddExtra(Guid deliveryId, Guid productId, string productName, Quantity quantity, Price unitPrice)
     {
-        // TODO: only the subscription's own Scheduled delivery takes an extra, while
-        // the subscription is Active or Paused. Helper: EditableDelivery.
-        throw new NotImplementedException();
+        EditableDelivery(deliveryId).AddExtra(productId, productName, quantity, unitPrice);
     }
 
     public void RemoveExtra(Guid deliveryId, Guid productId)
@@ -142,13 +154,27 @@ public class Subscription : AggregateRoot
         EditableDelivery(deliveryId).RemoveExtra(productId);
     }
 
-    public void PrepareDelivery(Guid deliveryId, Guid orderId, DateTime now)
+    public PreparedDelivery PrepareDelivery(Guid deliveryId, Guid orderId, DateTime now)
     {
         RejectUnless(Status == SubscriptionStatus.Active, "Only an active subscription can prepare a delivery.");
         var delivery = EditableDelivery(deliveryId);
         RejectUnless(delivery.ScheduledFor <= now, "This delivery is not due yet.");
         delivery.Prepare(orderId);
         Schedule(delivery.ScheduledFor.AddDays(Plan.IntervalDays));
+
+        var lines = new List<DeliveryLine> { new(delivery.ProductId, Plan.ProductName, delivery.Quantity, delivery.UnitPrice) };
+        lines.AddRange(delivery.Extras.Select(e => new DeliveryLine(e.ProductId, e.ProductName, e.Quantity, e.UnitPrice)));
+        return new PreparedDelivery(orderId, lines);
+    }
+
+    // A delivery wanted for today, or a day already gone, goes out at once
+    // instead of waiting for the next daily run.
+    public PreparedDelivery? PrepareIfDue(Guid orderId, DateTime now)
+    {
+        var next = NextScheduled();
+        return next != null && next.ScheduledFor <= now
+            ? PrepareDelivery(next.Id, orderId, now)
+            : null;
     }
 
     private Delivery EditableDelivery(Guid deliveryId)

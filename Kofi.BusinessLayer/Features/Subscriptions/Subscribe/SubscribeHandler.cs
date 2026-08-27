@@ -1,12 +1,11 @@
 using Kofi.BusinessLayer.Abstractions;
 using Kofi.BusinessLayer.Services;
-using Kofi.DataAccessLayer.Models;
 using Kofi.DataAccessLayer.Repositories;
+using Kofi.Domain.Shared;
+using Kofi.Domain.Subscriptions;
 
 namespace Kofi.BusinessLayer.Features.Subscriptions.Subscribe;
 
-// The subscription starts incomplete: nothing is planned or charged until
-// the customer authorises their card with the payment provider.
 public class SubscribeHandler(
     ISubscriptionRepository subscriptions,
     ICustomerRepository customers,
@@ -21,17 +20,21 @@ public class SubscribeHandler(
         var product = await products.GetById(command.ProductId)
             ?? throw new DomainException("Product not found");
         if (!product.IsActive)
-            throw new DomainException("Product is no longer available");
-
-        var subscription = new Subscription
         {
-            Id = Guid.NewGuid(), CustomerId = customer.Id, ProductId = product.Id,
-            ProductName = product.Name, UnitPrice = product.Price, Quantity = command.Quantity,
-            IntervalDays = command.IntervalDays, CreatedAt = DateTime.Now,
-            // Until activation, the day the customer wants the first delivery.
-            NextDeliveryAt = command.FirstDeliveryOn.ToDateTime(TimeOnly.MinValue),
-        };
+            throw new DomainException("Product is no longer available");
+        }
+
+        var plan = new Plan(product.Id, product.Name, new Quantity(command.Quantity), command.IntervalDays,
+            new Price(product.Price, "EUR"));
+        // Nothing is planned or charged until the customer authorises a card.
+        var subscription = Subscription.Create(customer.Id, plan,
+            firstDeliveryOn: command.FirstDeliveryOn.ToDateTime(TimeOnly.MinValue), now: DateTime.Now);
         subscriptions.Add(subscription);
-        return new SubscribeResponse { Id = subscription.Id, Status = subscription.Status.ToString() };
+
+        return new SubscribeResponse
+        {
+            Id = subscription.Id,
+            Status = subscription.Status.ToString(),
+        };
     }
 }

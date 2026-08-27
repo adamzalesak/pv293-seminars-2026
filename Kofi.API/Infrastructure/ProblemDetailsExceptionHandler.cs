@@ -1,7 +1,9 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Kofi.BusinessLayer.Abstractions;
+using Kofi.Domain;
 
 namespace Kofi.API.Infrastructure;
 
@@ -22,6 +24,14 @@ public class ProblemDetailsExceptionHandler(
                 Title = "Validation failed",
                 Detail = string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)),
             },
+            // A rule of the domain said no: that is the caller's answer, not a
+            // failure of ours.
+            DomainRuleException rule => new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Request cannot be processed",
+                Detail = rule.Message,
+            },
             NotFoundException notFound => new ProblemDetails
             {
                 Status = StatusCodes.Status404NotFound,
@@ -41,6 +51,15 @@ public class ProblemDetailsExceptionHandler(
                 Status = StatusCodes.Status400BadRequest,
                 Title = "Malformed request",
                 Detail = badRequest.Message,
+            },
+            // Someone else saved this aggregate after we loaded it. Retrying the
+            // whole command could repeat its side effects, so the caller reloads
+            // and decides again.
+            DbUpdateConcurrencyException => new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Changed meanwhile",
+                Detail = "The data changed after it was loaded. Reload it and try again.",
             },
             _ => new ProblemDetails
             {

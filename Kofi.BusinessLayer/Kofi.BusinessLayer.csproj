@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Kofi.DataAccessLayer\Kofi.DataAccessLayer.csproj" />
+    <ProjectReference Include="..\Kofi.Domain\Kofi.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>
