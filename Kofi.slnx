@@ -1,10 +1,10 @@
 <Solution>
   <Project Path="Kofi.AppHost/Kofi.AppHost.csproj" />
   <Project Path="Kofi.ServiceDefaults/Kofi.ServiceDefaults.csproj" />
-  <Project Path="Kofi.API/Kofi.API.csproj" />
+  <Project Path="Kofi/Kofi.csproj" />
   <Project Path="Kofi.Domain/Kofi.Domain.csproj" />
   <Project Path="Kofi.Domain.Tests/Kofi.Domain.Tests.csproj" />
-  <Project Path="Kofi.BusinessLayer/Kofi.BusinessLayer.csproj" />
-  <Project Path="Kofi.DataAccessLayer/Kofi.DataAccessLayer.csproj" />
+  <Project Path="Kofi.Application/Kofi.Application.csproj" />
+  <Project Path="Kofi.Infrastructure/Kofi.Infrastructure.csproj" />
   <Project Path="PaymentGateway/PaymentGateway.csproj" />
 </Solution>

@@ -31,8 +31,11 @@ public class Subscription : AggregateRoot
     // The customer subscribes with a plan and the day of the first delivery.
     // Nothing is planned or charged until they authorise a card; until then
     // the chosen day is the only date the subscription has.
-    public static Subscription Create(Guid customerId, Plan plan, DateTime firstDeliveryOn, DateTime now)
+    public static Subscription Create(Guid customerId, OfferedProduct product, Quantity quantity, int intervalDays,
+        DateTime firstDeliveryOn, DateTime now)
     {
+        product.EnsureOnSale();
+        var plan = new Plan(product.Id, product.Name, quantity, intervalDays, product.Price);
         RejectUnless(firstDeliveryOn.Date >= now.Date,
             "The first delivery cannot be in the past.");
 
@@ -85,6 +88,7 @@ public class Subscription : AggregateRoot
         // The delivery that was waiting keeps its place in the queue; it only
         // gets a new date.
         var next = nextDeliveryOn.Date;
+
         if (NextScheduled() is { } waiting)
         {
             waiting.Reschedule(next, Plan);
@@ -94,7 +98,6 @@ public class Subscription : AggregateRoot
         {
             Schedule(next);
         }
-
     }
 
     public void Cancel(DateTime now)
@@ -113,11 +116,12 @@ public class Subscription : AggregateRoot
         {
             delivery.Cancel();
         }
-
     }
 
-    public void ChangePlan(Plan plan)
+    public void ChangePlan(OfferedProduct product, Quantity quantity, int intervalDays)
     {
+        product.EnsureOnSale();
+        var plan = new Plan(product.Id, product.Name, quantity, intervalDays, product.Price);
         RejectUnless(Status is SubscriptionStatus.Active or SubscriptionStatus.Paused,
             "Only a running subscription can change its plan.");
 
@@ -138,15 +142,16 @@ public class Subscription : AggregateRoot
             "Only an active subscription can skip a delivery.");
 
         var next = NextScheduled()
-            ?? throw new DomainRuleException("There is no delivery left to skip.");
+                   ?? throw new DomainRuleException("There is no delivery left to skip.");
 
         next.Skip();
         Schedule(next.ScheduledFor.AddDays(Plan.IntervalDays));
     }
 
-    public void AddExtra(Guid deliveryId, Guid productId, string productName, Quantity quantity, Price unitPrice)
+    public void AddExtra(Guid deliveryId, OfferedProduct product, Quantity quantity)
     {
-        EditableDelivery(deliveryId).AddExtra(productId, productName, quantity, unitPrice);
+        product.EnsureOnSale();
+        EditableDelivery(deliveryId).AddExtra(product.Id, product.Name, quantity, product.Price);
     }
 
     public void RemoveExtra(Guid deliveryId, Guid productId)
@@ -164,6 +169,7 @@ public class Subscription : AggregateRoot
 
         var lines = new List<DeliveryLine> { new(delivery.ProductId, Plan.ProductName, delivery.Quantity, delivery.UnitPrice) };
         lines.AddRange(delivery.Extras.Select(e => new DeliveryLine(e.ProductId, e.ProductName, e.Quantity, e.UnitPrice)));
+
         return new PreparedDelivery(orderId, lines);
     }
 
@@ -182,8 +188,9 @@ public class Subscription : AggregateRoot
         RejectUnless(Status is SubscriptionStatus.Active or SubscriptionStatus.Paused,
             "Only a running subscription can change a delivery.");
         var delivery = _deliveries.SingleOrDefault(d => d.Id == deliveryId)
-            ?? throw new DomainRuleException("This subscription has no such delivery.");
+                       ?? throw new DomainRuleException("This subscription has no such delivery.");
         RejectUnless(delivery.IsScheduled, "Only a planned delivery can be changed.");
+
         return delivery;
     }
 
@@ -195,6 +202,7 @@ public class Subscription : AggregateRoot
         var delivery = Delivery.Schedule(scheduledFor, Plan);
         _deliveries.Add(delivery);
         NextDeliveryAt = scheduledFor;
+
         return delivery;
     }
 

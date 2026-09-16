@@ -1,7 +1,7 @@
 <Project Sdk="Aspire.AppHost.Sdk/13.4.6">
 
   <ItemGroup>
-    <ProjectReference Include="..\Kofi.API\Kofi.API.csproj" />
+    <ProjectReference Include="..\Kofi\Kofi.csproj" />
     <ProjectReference Include="..\PaymentGateway\PaymentGateway.csproj" />
   </ItemGroup>
 

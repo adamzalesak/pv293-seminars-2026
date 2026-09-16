@@ -11,7 +11,7 @@ var mail = builder.AddMailPit("mail");
 // Stands in for the card payment provider; not part of KoFI.
 var payments = builder.AddProject<Projects.PaymentGateway>("payments");
 
-var api = builder.AddProject<Projects.Kofi_API>("api")
+var api = builder.AddProject<Projects.Kofi>("api")
     .WithReference(db)
     .WithReference(mail)
     .WithReference(payments)
@@ -20,7 +20,7 @@ var api = builder.AddProject<Projects.Kofi_API>("api")
 // The shop's front end. Vite proxies /api to the API, so the browser sees one origin.
 builder.AddViteApp("web", "../Kofi.Web")
     .WithPnpm()
-    .WithEndpoint("http", e => e.Port = 5173)
+    .WithEndpoint("http", e => e.Port = int.Parse(builder.Configuration["Kofi:WebPort"] ?? "5173"))
     .WithReference(api)
     .WaitFor(api);
 

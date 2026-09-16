@@ -1,19 +1,19 @@
 {
     "openapi": "3.1.1",
     "info": {
-        "title": "Kofi.API | v1",
+        "title": "Kofi | v1",
         "version": "1.0.0"
     },
     "servers": [
         {
-            "url": "http://localhost:5399/"
+            "url": "http://localhost:5187/"
         }
     ],
     "paths": {
         "/auth/login": {
             "post": {
                 "tags": [
-                    "Kofi.API"
+                    "Kofi"
                 ],
                 "requestBody": {
                     "content": {
@@ -2514,7 +2514,7 @@
     ],
     "tags": [
         {
-            "name": "Kofi.API"
+            "name": "Kofi"
         },
         {
             "name": "Products"

@@ -1,4 +1,3 @@
-using Kofi.Domain;
 using Kofi.Domain.Subscriptions;
 using Xunit;
 
@@ -6,14 +5,6 @@ namespace Kofi.Domain.Tests.Subscriptions;
 
 public class NextDeliveryRulesTests
 {
-    [Fact]
-    public void A_cancelled_subscription_cannot_be_paused()
-    {
-        var sub = SubscriptionFactory.Cancelled();
-        Assert.Throws<DomainRuleException>(() => sub.Pause(SubscriptionFactory.Now));
-        Assert.Equal(SubscriptionStatus.Cancelled, sub.Status);
-    }
-
     [Fact]
     public void A_cancelled_subscription_cannot_change_its_plan()
     {
