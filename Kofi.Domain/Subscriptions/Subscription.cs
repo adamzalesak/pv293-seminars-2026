@@ -159,6 +159,17 @@ public class Subscription : AggregateRoot
         EditableDelivery(deliveryId).RemoveExtra(productId);
     }
 
+    public IReadOnlyList<DeliveryLine> LinesToPrepare(Guid deliveryId, DateTime now)
+    {
+        RejectUnless(Status == SubscriptionStatus.Active, "Only an active subscription can prepare a delivery.");
+        var delivery = EditableDelivery(deliveryId);
+        RejectUnless(delivery.ScheduledFor <= now, "This delivery is not due yet.");
+
+        return new[] { new DeliveryLine(delivery.ProductId, Plan.ProductName, delivery.Quantity, delivery.UnitPrice) }
+            .Concat(delivery.Extras.Select(e => new DeliveryLine(e.ProductId, e.ProductName, e.Quantity, e.UnitPrice)))
+            .ToList();
+    }
+
     public PreparedDelivery PrepareDelivery(Guid deliveryId, Guid orderId, DateTime now)
     {
         RejectUnless(Status == SubscriptionStatus.Active, "Only an active subscription can prepare a delivery.");

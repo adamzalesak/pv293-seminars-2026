@@ -1,6 +1,6 @@
 using FluentValidation;
-using Kofi.Application.Abstractions;
-using Kofi.Domain;
+using Kofi.Common.Abstractions;
+using Kofi.Common.Domain;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;

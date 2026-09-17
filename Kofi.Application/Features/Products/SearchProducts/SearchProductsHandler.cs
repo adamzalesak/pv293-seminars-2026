@@ -1,5 +1,6 @@
-using Kofi.Application.Abstractions;
 using Kofi.Application.Persistence;
+using Kofi.Common.Abstractions;
+using Kofi.Domain.Products;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kofi.Application.Features.Products.SearchProducts;
@@ -12,7 +13,7 @@ public class SearchProductsHandler(IApplicationDbContext db) : IQueryHandler<Sea
 
         if (!query.IncludeInactive)
         {
-            q = q.Where(p => p.IsActive);
+            q = q.Where(p => p.Status == ProductStatus.Active || p.Status == ProductStatus.Discontinued);
         }
 
         if (!string.IsNullOrWhiteSpace(query.Search))
@@ -36,7 +37,10 @@ public class SearchProductsHandler(IApplicationDbContext db) : IQueryHandler<Sea
                 Name = p.Name,
                 Price = p.Price.Amount,
                 StockQuantity = p.StockQuantity,
-                IsActive = p.IsActive,
+                IsActive = p.Status == ProductStatus.Active || p.Status == ProductStatus.Discontinued,
+                Status = p.Status.ToString(),
+                CanBeSold = p.Status == ProductStatus.Active || p.Status == ProductStatus.Discontinued,
+                CanBeSubscribed = p.Status == ProductStatus.Active,
                 RoastedOn = p.RoastedOn,
                 Origin = p.Origin,
                 ImageUrl = p.ImageUrl

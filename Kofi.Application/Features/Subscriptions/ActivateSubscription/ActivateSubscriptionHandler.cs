@@ -1,14 +1,16 @@
-using Kofi.Application.Abstractions;
 using Kofi.Application.Repositories;
 using Kofi.Application.Services;
-using Kofi.Domain;
+using Kofi.Common.Abstractions;
+using Kofi.Common.Domain;
+using Kofi.Common.Services;
 using Kofi.Domain.Subscriptions;
+using Kofi.Ordering.Contracts;
 
 namespace Kofi.Application.Features.Subscriptions.ActivateSubscription;
 
 public class ActivateSubscriptionHandler(
     ISubscriptionRepository subscriptions,
-    ICustomerRepository customers,
+    IOrdering ordering,
     IPaymentGatewayClient payments,
     ISubscriptionOrderService orders) : ICommandHandler<ActivateSubscriptionCommand, ActivateSubscriptionResponse>
 {
@@ -18,7 +20,7 @@ public class ActivateSubscriptionHandler(
 
         var now = DateTime.Now;
 
-        var customer = await customers.GetById(subscription.CustomerId) ?? throw new NotFoundException("Customer not found");
+        var customer = await ordering.GetCustomer(subscription.CustomerId) ?? throw new NotFoundException("Customer not found");
         CardSetupStatus? card = null;
 
         if (command.SetupId is { } setupId)
@@ -40,9 +42,9 @@ public class ActivateSubscriptionHandler(
                 return Result(subscription, card);
             }
 
-            customer.SavePaymentCard(setup.PaymentMethodToken!, setup.CardLabel);
+            await ordering.SavePaymentCard(customer.Id, setup.PaymentMethodToken!, setup.CardLabel, ct);
         }
-        else if (customer.PaymentMethodToken == null)
+        else if (!customer.HasSavedCard)
         {
             // Without a new authorisation only a card saved earlier can be charged.
             throw new DomainRuleException("There is no saved card; authorise one first");
@@ -50,9 +52,9 @@ public class ActivateSubscriptionHandler(
 
         subscription.Activate(now);
 
-        if (subscription.PrepareIfDue(Guid.NewGuid(), now) is { } prepared)
+        if (subscription.Deliveries.FirstOrDefault(d => d.Status == DeliveryStatus.Scheduled && d.ScheduledFor <= now) is { } due)
         {
-            await orders.Create(subscription.CustomerId, now, prepared);
+            await orders.Prepare(subscription, due.Id, now, ct);
         }
 
         return Result(subscription, card);

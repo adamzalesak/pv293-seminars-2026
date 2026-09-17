@@ -1,5 +1,6 @@
-using Kofi.Application.Abstractions;
 using Kofi.Application.Repositories;
+using Kofi.Common.Abstractions;
+using Kofi.Domain.Products;
 using Kofi.Domain.Shared;
 using Kofi.Domain.Subscriptions;
 
@@ -17,7 +18,7 @@ public class ChangePlanHandler(
         var product = await products.GetById(command.ProductId)
                       ?? throw new NotFoundException("Product not found");
 
-        var offer = new OfferedProduct(product.Id, product.Name, product.Price, product.IsActive);
+        var offer = new OfferedProduct(product.Id, product.Name, product.Price, product.Status == ProductStatus.Active);
 
         subscription.ChangePlan(offer, new Quantity(command.Quantity), command.IntervalDays);
     }

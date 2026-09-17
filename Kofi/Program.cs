@@ -1,95 +1,20 @@
-using System.Globalization;
-using FluentValidation;
-using Kofi.Application.Behaviors;
-using Kofi.Application.Features.Orders.CreateOrder;
-using Kofi.Application.Features.Subscriptions.ProcessDueDeliveries;
-using Kofi.Application.Persistence;
-using Kofi.Application.Repositories;
-using Kofi.Application.Services;
-using Kofi.Auth;
+using System.Reflection;
+using Kofi;
 using Kofi.Endpoints;
-using Kofi.Host;
-using Kofi.Infrastructure.Persistence;
-using Kofi.Infrastructure.Persistence.Repositories;
-using Kofi.Infrastructure.Services;
-using Scalar.AspNetCore;
+using Kofi.Infrastructure;
+using Kofi.Ordering;
 
 var builder = WebApplication.CreateBuilder(args);
-
-builder.AddServiceDefaults();
-// No retrying execution strategy: it refuses transactions the application
-// opens itself.
-builder.AddNpgsqlDbContext<AppDbContext>("kofidb", settings => settings.DisableRetry = true);
-
-builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<AppDbContext>());
-
-builder.Services.AddScoped<IOrderRepository, OrderRepository>();
-builder.Services.AddScoped<IProductRepository, ProductRepository>();
-builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
-builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
-
-builder.Services.AddScoped<IStockService, StockService>();
-builder.Services.AddScoped<ISubscriptionOrderService, SubscriptionOrderService>();
-builder.Services.AddScoped<DueDeliveryProcessor>();
-builder.Services.AddScoped<IPricingService, PricingService>();
-
-builder.Services.AddScoped<IEmailService, EmailService>();
-builder.Services.AddScoped<IAuditService, AuditService>();
-
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
-
-builder.Services.AddHttpClient<IPaymentGatewayClient, PaymentGatewayClient>(c => c.BaseAddress = new Uri("https+http://payments"));
-
-// Audit is registered outside the transaction: inside it, a command that
-// failed to commit would still leave an audit record saying it happened.
-builder.Services.AddMediatR(cfg =>
-{
-    cfg.RegisterServicesFromAssemblyContaining<CreateOrderCommand>();
-    cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
-    cfg.AddOpenBehavior(typeof(SubscriptionOwnershipBehavior<,>));
-    cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
-    cfg.AddOpenBehavior(typeof(AuditBehavior<,>));
-    cfg.AddOpenBehavior(typeof(TransactionBehavior<,>));
-    cfg.AddOpenBehavior(typeof(DomainEventBehavior<,>));
-    cfg.NotificationPublisherType = typeof(TransactionalDomainEventPublisher);
-});
-
-builder.Services.AddValidatorsFromAssemblyContaining<CreateOrderCommand>();
-
-// Messages follow the machine's locale by default; the codebase is English.
-ValidatorOptions.Global.LanguageManager.Culture = CultureInfo.InvariantCulture;
-
-builder.Services.AddProblemDetails();
-builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
-
-builder.Services.AddOpenApi(options => options.AddBearerScheme());
-builder.AddKofiAuth();
+builder.AddKofiHost();
+var moduleAssemblies = new List<Assembly>();
+builder.Services.AddOrderingModule(moduleAssemblies);
+builder.Services.AddRemainingFeatures(moduleAssemblies);
+builder.Services.AddKofiPipeline(moduleAssemblies);
 
 var app = builder.Build();
-
-app.UseExceptionHandler();
-
-// Product images live in wwwroot/images.
-app.UseStaticFiles();
-app.MapDefaultEndpoints();
-app.MapOpenApi();
-app.MapScalarApiReference();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapAuthEndpoints();
+app.UseKofiHost();
+app.MapOrderingModule();
 app.MapProductEndpoints();
-app.MapOrderEndpoints();
-app.MapCustomerEndpoints();
 app.MapSubscriptionEndpoints();
-app.MapPaymentCardEndpoints();
-
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    DbSeeder.Seed(db);
-}
-
+await app.InitializeModulesAsync();
 app.Run();

@@ -1,5 +1,5 @@
-using Kofi.Application.Abstractions;
 using Kofi.Application.Repositories;
+using Kofi.Common.Abstractions;
 
 namespace Kofi.Application.Features.Subscriptions.PauseSubscription;
 

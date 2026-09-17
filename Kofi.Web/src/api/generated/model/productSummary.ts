@@ -13,6 +13,9 @@ export interface ProductSummary {
   /** @pattern ^-?(?:0|[1-9]\d*)$ */
   stockQuantity: number | string;
   isActive: boolean;
+  status: string;
+  canBeSold: boolean;
+  canBeSubscribed: boolean;
   /** @nullable */
   roastedOn?: string | null;
   /** @nullable */

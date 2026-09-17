@@ -267,7 +267,7 @@ function ChangePlanDialog({ subscription }: { subscription: SubscriptionDetail }
   const [intervalDays, setIntervalDays] = useState(Number(subscription.intervalDays))
   const onDone = useOnDone()
   const products = useGetProducts({ pageSize: 100 }, { query: { enabled: open } })
-  const coffees = products.data?.items.filter((p) => p.roastedOn) ?? []
+  const coffees = products.data?.items.filter((p) => p.roastedOn && p.canBeSubscribed) ?? []
   const save = usePutSubscriptionsIdPlan({ mutation: onDone('Plan changed', '/subscriptions') })
 
   return (
@@ -385,7 +385,7 @@ function AddExtraDialog({ subscriptionId, deliveryId }: { subscriptionId: string
                   <SelectValue placeholder="Choose a product" />
                 </SelectTrigger>
                 <SelectContent>
-                  {products.data?.items.map((p) => (
+                  {products.data?.items.filter((p) => p.canBeSubscribed).map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name} ({formatMoney(p.price)})
                     </SelectItem>

@@ -1,5 +1,5 @@
+using Kofi.Common.Domain;
 using Kofi.Domain.Shared;
-using Kofi.Domain;
 using Xunit;
 
 namespace Kofi.Domain.Tests.Shared;
@@ -28,8 +28,7 @@ public class PriceTests
     [Fact]
     public void Adding_two_currencies_is_rejected()
     {
-        Assert.Throws<DomainRuleException>(
-            () => new Price(10m, "EUR") + new Price(10m, "CZK"));
+        Assert.Throws<DomainRuleException>(() => new Price(10m, "EUR") + new Price(10m, "CZK"));
     }
 
     [Fact]

@@ -1,6 +1,6 @@
 # ADR-0005: Subscriptions live inside the existing application
 
-**Status:** Accepted (Seminar 3)
+**Status:** Superseded by ADR-0008
 
 ## Context
 

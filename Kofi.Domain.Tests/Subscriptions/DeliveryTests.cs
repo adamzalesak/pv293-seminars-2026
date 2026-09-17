@@ -1,6 +1,6 @@
+using Kofi.Common.Domain;
 using Kofi.Domain.Shared;
 using Kofi.Domain.Subscriptions;
-using Kofi.Domain;
 using Xunit;
 
 namespace Kofi.Domain.Tests.Subscriptions;
@@ -21,8 +21,7 @@ public class DeliveryTests
         Assert.Single(subscription.Deliveries);
         Assert.Equal(firstDay, first.ScheduledFor);
         Assert.Equal(firstDay, subscription.NextDeliveryAt);
-        Assert.Throws<DomainRuleException>(
-            () => subscription.PrepareDelivery(first.Id, Guid.NewGuid(), SubscriptionFactory.Now));
+        Assert.Throws<DomainRuleException>(() => subscription.PrepareDelivery(first.Id, Guid.NewGuid(), SubscriptionFactory.Now));
     }
 
     [Fact]
@@ -81,8 +80,7 @@ public class DeliveryTests
     [Fact]
     public void The_first_delivery_cannot_be_in_the_past()
     {
-        Assert.Throws<DomainRuleException>(
-            () => SubscriptionFactory.Incomplete(SubscriptionFactory.Now.Date.AddDays(-1)));
+        Assert.Throws<DomainRuleException>(() => SubscriptionFactory.Incomplete(SubscriptionFactory.Now.Date.AddDays(-1)));
     }
 
     [Fact]
@@ -130,8 +128,7 @@ public class DeliveryTests
         var subscription = SubscriptionFactory.Active();
         subscription.Pause(SubscriptionFactory.Now);
 
-        Assert.Throws<DomainRuleException>(
-            () => subscription.SkipNextDelivery(SubscriptionFactory.Now));
+        Assert.Throws<DomainRuleException>(() => subscription.SkipNextDelivery(SubscriptionFactory.Now));
     }
 
     [Fact]

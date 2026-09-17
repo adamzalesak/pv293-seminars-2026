@@ -12,20 +12,20 @@ public class Product : AggregateRoot
     public string Description { get; private set; } = "";
     public Price Price { get; private set; } = null!;
     public int StockQuantity { get; private set; }
-    public bool IsActive { get; private set; }
+    public ProductStatus Status { get; private set; }
     public string? ImageUrl { get; private set; }
     public DateOnly? RoastedOn { get; private set; }
     public string? Origin { get; private set; }
 
     public static Product Create(Guid id, string name, string description, Price price, int stockQuantity,
-        bool isActive = true, DateOnly? roastedOn = null, string? origin = null, string? imageUrl = null)
+        ProductStatus status = ProductStatus.Draft, DateOnly? roastedOn = null, string? origin = null, string? imageUrl = null)
     {
         if (stockQuantity < 0)
         {
             throw new DomainRuleException("Stock cannot be negative.");
         }
 
-        var product = new Product { Id = id, Price = price, StockQuantity = stockQuantity, IsActive = isActive };
+        var product = new Product { Id = id, Price = price, StockQuantity = stockQuantity, Status = status };
         product.UpdateDetails(name, description, roastedOn, origin, imageUrl);
 
         return product;
@@ -46,17 +46,32 @@ public class Product : AggregateRoot
     }
 
     public void ChangePrice(Price price) => Price = price;
-    public void Activate() => IsActive = true;
-    public void Deactivate() => IsActive = false;
+    public void Activate() => Status = ProductStatus.Active;
+    public void Deactivate() => Status = ProductStatus.Inactive;
+
+    public void Discontinue()
+    {
+        if (Status != ProductStatus.Active)
+        {
+            throw new DomainRuleException("Only an active product can be discontinued.");
+        }
+
+        Status = ProductStatus.Discontinued;
+    }
+
     public void Restock(Quantity quantity) => StockQuantity += quantity.Value;
 
-    public void Reserve(Quantity quantity)
+    public void CheckAvailable(Quantity quantity)
     {
         if (quantity.Value > StockQuantity)
         {
             throw new DomainRuleException("Not enough stock for " + Name);
         }
+    }
 
+    public void Reserve(Quantity quantity)
+    {
+        CheckAvailable(quantity);
         StockQuantity -= quantity.Value;
     }
 

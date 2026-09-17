@@ -1,14 +1,14 @@
 using System.Security.Claims;
-using Kofi.Application.Abstractions;
 using Kofi.Application.Features.Products.ActivateProduct;
 using Kofi.Application.Features.Products.ChangeProductPrice;
 using Kofi.Application.Features.Products.CreateProduct;
 using Kofi.Application.Features.Products.DeactivateProduct;
+using Kofi.Application.Features.Products.DiscontinueProduct;
 using Kofi.Application.Features.Products.GetProduct;
 using Kofi.Application.Features.Products.RestockProduct;
 using Kofi.Application.Features.Products.SearchProducts;
 using Kofi.Application.Features.Products.UpdateProduct;
-using Kofi.Auth;
+using Kofi.Common.Abstractions;
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 
@@ -96,6 +96,12 @@ public static class ProductEndpoints
                 IMediator mediator, Guid id, RestockProductRequest request) =>
             {
                 await mediator.Send(new RestockProductCommand { Id = id, Quantity = request.Quantity });
+                return TypedResults.NoContent();
+            })
+            .RequireAuthorization(Roles.Administrator);
+        products.MapPost("/{id:guid}/discontinue", async Task<NoContent> (IMediator mediator, Guid id) =>
+            {
+                await mediator.Send(new DiscontinueProductCommand { Id = id });
                 return TypedResults.NoContent();
             })
             .RequireAuthorization(Roles.Administrator);

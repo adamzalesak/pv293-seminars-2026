@@ -14,7 +14,13 @@ test('a customer buys coffee and pays for it', async ({ page }) => {
   await page.getByLabel('Full name').fill('Petra Nováková')
   await page.getByLabel('Street and number').fill('Kounicova 12')
   await page.getByLabel('City').fill('Brno')
-  await page.getByLabel('Postcode').fill('60200')
+  await page.getByLabel('Street and number').fill('Kounicova')
+  await page.getByLabel('Postcode').fill('602')
+  await page.getByRole('button', { name: 'Place order and pay' }).click()
+  await expect(page.getByText('Enter a house number.')).toBeVisible()
+  await expect(page.getByText('Enter a five-digit postcode.')).toBeVisible()
+  await page.getByLabel('Street and number').fill('Kounicova 12')
+  await page.getByLabel('Postcode').fill('602 00')
   await page.getByRole('button', { name: 'Place order and pay' }).click()
 
   // The payment provider's own page.

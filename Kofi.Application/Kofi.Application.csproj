@@ -7,6 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Kofi.Common/Kofi.Common.csproj" />
+    <ProjectReference Include="../Kofi.Ordering.Contracts/Kofi.Ordering.Contracts.csproj" />
     <ProjectReference Include="..\Kofi.Domain\Kofi.Domain.csproj" />
   </ItemGroup>
 

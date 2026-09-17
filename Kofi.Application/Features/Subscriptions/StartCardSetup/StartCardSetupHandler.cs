@@ -1,7 +1,7 @@
-using Kofi.Application.Abstractions;
 using Kofi.Application.Repositories;
-using Kofi.Application.Services;
-using Kofi.Domain;
+using Kofi.Common.Abstractions;
+using Kofi.Common.Domain;
+using Kofi.Common.Services;
 using Kofi.Domain.Subscriptions;
 
 namespace Kofi.Application.Features.Subscriptions.StartCardSetup;
