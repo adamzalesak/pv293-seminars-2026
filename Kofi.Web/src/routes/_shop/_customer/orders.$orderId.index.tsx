@@ -70,7 +70,13 @@ function OrderDetail() {
               <CardTitle>Total</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <OrderSummary itemsTotal={Number(o.itemsTotal)} shipping={Number(o.shipping)} total={Number(o.total)} />
+              <OrderSummary
+                itemsTotal={Number(o.itemsTotal)}
+                discount={Number(o.discount)}
+                couponCode={o.couponCode}
+                shipping={Number(o.shipping)}
+                total={Number(o.total)}
+              />
               {o.status === 'New' && (
                 <>
                   {pay.isError && (

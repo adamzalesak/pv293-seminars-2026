@@ -12,4 +12,6 @@ export interface CreateOrderCommand {
   city?: string;
   zip?: string;
   items?: CreateOrderItem[];
+  /** @nullable */
+  couponCode?: string | null;
 }

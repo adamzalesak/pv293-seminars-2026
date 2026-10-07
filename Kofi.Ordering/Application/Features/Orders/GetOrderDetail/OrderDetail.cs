@@ -11,6 +11,9 @@ public record OrderDetail
     public required string Status { get; init; }
     public required DateTime CreatedAt { get; init; }
     public required decimal ItemsTotal { get; init; }
+    public string? CouponCode { get; init; }
+    public int? DiscountPercent { get; init; }
+    public required decimal Discount { get; init; }
     public required decimal Shipping { get; init; }
     public required decimal Total { get; init; }
     public required IReadOnlyList<OrderDetailItem> Items { get; init; }

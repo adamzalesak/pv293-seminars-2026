@@ -1,4 +1,5 @@
 using Kofi.Common.Domain;
+using Kofi.Contracts;
 using MediatR;
 
 namespace Kofi.Host;
@@ -17,7 +18,7 @@ public class TransactionalDomainEventPublisher(ModuleUnitOfWork work) : INotific
             return true;
         }
 
-        if (notification is IDomainEvent)
+        if (notification is IDomainEvent or IIntegrationEvent)
         {
             await work.Run(Run, ct);
         }

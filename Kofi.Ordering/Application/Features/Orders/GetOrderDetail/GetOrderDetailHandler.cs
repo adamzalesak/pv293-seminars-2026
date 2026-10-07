@@ -24,6 +24,9 @@ public class GetOrderDetailHandler(IOrderingDbContext db, ICurrentUser user, IPr
                 Status = o.Status.ToString(),
                 CreatedAt = o.CreatedAt,
                 ItemsTotal = o.Items.Sum(i => i.UnitPrice.Amount * i.Quantity.Value),
+                CouponCode = o.Coupon != null ? o.Coupon.Code : null,
+                DiscountPercent = o.Coupon != null ? o.Coupon.DiscountPercent : (int?)null,
+                Discount = 0,
                 Shipping = 0,
                 Total = 0,
                 Items = o.Items.Select(i => new OrderDetailItem
@@ -43,7 +46,11 @@ public class GetOrderDetailHandler(IOrderingDbContext db, ICurrentUser user, IPr
             return null;
         }
 
-        var shipping = pricing.CalculateShipping(detail.ItemsTotal);
-        return detail with { Shipping = shipping, Total = Math.Round(detail.ItemsTotal + shipping, 2) };
+        return detail with
+        {
+            Discount = pricing.CalculateDiscount(detail.ItemsTotal, detail.DiscountPercent),
+            Shipping = pricing.CalculateShipping(detail.ItemsTotal),
+            Total = pricing.CalculateTotal(detail.ItemsTotal, detail.DiscountPercent)
+        };
     }
 }

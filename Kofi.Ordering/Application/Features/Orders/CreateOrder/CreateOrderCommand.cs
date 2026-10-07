@@ -9,4 +9,5 @@ public record CreateOrderCommand : ICommand<CreateOrderResponse>
     public string City { get; init; } = "";
     public string Zip { get; init; } = "";
     public List<CreateOrderItem> Items { get; init; } = new();
+    public string? CouponCode { get; init; }
 }

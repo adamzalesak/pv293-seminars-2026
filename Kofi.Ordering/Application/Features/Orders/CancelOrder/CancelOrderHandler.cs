@@ -1,12 +1,12 @@
 using Kofi.Common.Abstractions;
 using Kofi.Common.Services;
-using Kofi.Ordering.Application.Ports;
 using Kofi.Ordering.Application.Repositories;
 using Kofi.Ordering.Application.Services;
+using Kofi.Warehouse.Contracts;
 
 namespace Kofi.Ordering.Application.Features.Orders.CancelOrder;
 
-public class CancelOrderHandler(IOrderRepository orders, IOrderStock stock, IOrderEmailService email, IPaymentGatewayClient payments)
+public class CancelOrderHandler(IOrderRepository orders, IWarehouse stock, IOrderEmailService email, IPaymentGatewayClient payments)
     : ICommandHandler<CancelOrderCommand>
 {
     public async Task Handle(CancelOrderCommand command, CancellationToken ct)
@@ -22,7 +22,7 @@ public class CancelOrderHandler(IOrderRepository orders, IOrderStock stock, IOrd
 
         foreach (var item in order.Items)
         {
-            await stock.Release(item.ProductId, item.Quantity.Value);
+            await stock.Release(item.ProductId, item.Quantity.Value, ct);
         }
 
         await email.SendOrderCancelled(order);

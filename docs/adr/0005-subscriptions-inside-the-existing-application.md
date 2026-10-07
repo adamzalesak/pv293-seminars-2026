@@ -1,6 +1,6 @@
 # ADR-0005: Subscriptions live inside the existing application
 
-**Status:** Superseded by ADR-0008
+**Status:** Superseded by [ADR-0008](0008-bounded-contexts-become-modules-with-contracts.md) (Seminar 5)
 
 ## Context
 

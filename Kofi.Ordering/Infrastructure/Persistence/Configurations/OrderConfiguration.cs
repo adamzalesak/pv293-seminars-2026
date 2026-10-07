@@ -14,14 +14,14 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             address.Property(a => a.City).HasColumnName("City");
             address.Property(a => a.Zip).HasColumnName("Zip");
         });
-        order.ToTable("Orders", "public");
+        order.ToTable("Orders", "ordering");
         order.HasKey(o => o.Id);
         order.Ignore(o => o.DomainEvents);
         order.Property(o => o.Status).HasConversion<string>();
         order.ComplexProperty(o => o.CustomerEmail, email => email.Property(e => e.Value).HasColumnName("CustomerEmail"));
         order.OwnsMany(o => o.Items, item =>
         {
-            item.ToTable("OrderItems", "public");
+            item.ToTable("OrderItems", "ordering");
             item.WithOwner().HasForeignKey("OrderId");
             item.HasKey(i => i.Id);
             item.Property(i => i.Id).ValueGeneratedNever();
@@ -35,5 +35,10 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             item.Navigation(i => i.UnitPrice).IsRequired();
         });
         order.Navigation(o => o.Items).UsePropertyAccessMode(PropertyAccessMode.Field);
+        order.OwnsOne(o => o.Coupon, coupon =>
+        {
+            coupon.Property(c => c.Code).HasColumnName("CouponCode");
+            coupon.Property(c => c.DiscountPercent).HasColumnName("CouponDiscountPercent");
+        });
     }
 }

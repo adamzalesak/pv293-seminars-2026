@@ -15,10 +15,11 @@ public class Order : AggregateRoot
     public Guid? PaymentId { get; private set; }
     public ShippingAddress ShippingAddress { get; private set; } = null!;
     public DateTime CreatedAt { get; private set; }
+    public AppliedCoupon? Coupon { get; private set; }
     public IReadOnlyList<OrderItem> Items => _items.AsReadOnly();
 
     public static Order Create(Guid id, Guid customerId, string name, Email email, ShippingAddress address, DateTime now,
-        IEnumerable<OrderItem> items)
+        IEnumerable<OrderItem> items, AppliedCoupon? coupon = null)
     {
         var order = new Order
         {
@@ -27,7 +28,8 @@ public class Order : AggregateRoot
             CustomerName = name,
             CustomerEmail = new Email(email.Value),
             ShippingAddress = new ShippingAddress(address.Street, address.City, address.Zip),
-            CreatedAt = now
+            CreatedAt = now,
+            Coupon = coupon
         };
         order._items.AddRange(items);
 

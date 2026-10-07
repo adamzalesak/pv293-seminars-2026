@@ -1,13 +1,14 @@
+using Kofi.Common.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Kofi.Host;
 
-public class ModuleUnitOfWork(IEnumerable<DbContext> contexts)
+public class ModuleUnitOfWork(IEnumerable<AggregateDbContext> contexts)
 {
-    private readonly IReadOnlyList<DbContext> _contexts = contexts.ToList();
+    private readonly IReadOnlyList<AggregateDbContext> _contexts = contexts.ToList();
     public bool IsActive => _contexts.Any(c => c.Database.CurrentTransaction != null);
-    public IReadOnlyList<DbContext> Contexts => _contexts;
+    public IReadOnlyList<AggregateDbContext> Contexts => _contexts;
 
     public async Task<T> Run<T>(Func<Task<T>> action, CancellationToken ct)
     {

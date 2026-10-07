@@ -14,7 +14,7 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
             address.Property(a => a.City).HasColumnName("City");
             address.Property(a => a.Zip).HasColumnName("Zip");
         });
-        customer.ToTable("Customers", "public");
+        customer.ToTable("Customers", "ordering");
         customer.HasKey(c => c.Id);
         customer.Ignore(c => c.DomainEvents);
         customer.OwnsOne(c => c.Email, email =>

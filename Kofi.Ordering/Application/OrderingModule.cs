@@ -1,11 +1,12 @@
+using Kofi.Catalog.Contracts;
 using Kofi.Common.Abstractions;
 using Kofi.Common.Services;
 using Kofi.Ordering.Application.Persistence;
-using Kofi.Ordering.Application.Ports;
 using Kofi.Ordering.Application.Repositories;
 using Kofi.Ordering.Application.Services;
 using Kofi.Ordering.Contracts;
 using Kofi.Ordering.Domain.Orders;
+using Kofi.Warehouse.Contracts;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kofi.Ordering.Application;
@@ -14,8 +15,8 @@ public class OrderingModule(
     IOrderingDbContext db,
     IOrderRepository orders,
     ICustomerRepository customers,
-    IProductCatalog catalog,
-    IOrderStock stock,
+    ICatalog catalog,
+    IWarehouse stock,
     IPaymentGatewayClient payments,
     IPricingService pricing) : IOrdering
 {

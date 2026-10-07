@@ -53,8 +53,7 @@ public class StartOrderPaymentHandler(
 
         var attempt = order.PaymentId == null ? order.Id.ToString() : $"{order.Id}/{order.PaymentId}";
 
-        var itemsTotal = pricing.CalculateItemsTotal(order.Items);
-        var total = Math.Round(itemsTotal + pricing.CalculateShipping(itemsTotal), 2);
+        var total = pricing.CalculateTotal(pricing.CalculateItemsTotal(order.Items), order.Coupon?.DiscountPercent);
         var payment = await payments.CreatePayment(total, "EUR", order.Id.ToString(), command.ReturnUrl, attempt);
 
         order.StartPayment(payment.PaymentId);

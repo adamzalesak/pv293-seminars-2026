@@ -6,7 +6,6 @@ using Kofi.Common.Behaviors;
 using Kofi.Common.Bootstrap;
 using Kofi.Common.Services;
 using Kofi.Host;
-using Kofi.Ordering.Application.Ports;
 using Kofi.Services;
 using MediatR;
 using Npgsql;
@@ -33,9 +32,6 @@ public static class HostRegistration
         services.AddHttpClient<IPaymentGatewayClient, PaymentGatewayClient>(c => c.BaseAddress = new Uri("https+http://payments"));
 
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
-
-        services.AddScoped<IProductCatalog, LegacyProductCatalog>();
-        services.AddScoped<IOrderStock, LegacyOrderStock>();
 
         services.AddProblemDetails();
         services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
@@ -81,7 +77,7 @@ public static class HostRegistration
     {
         using var scope = app.Services.CreateScope();
         var services = scope.ServiceProvider;
-
+        await SchemaSetup.Apply(services.GetRequiredService<NpgsqlConnection>(), ct);
         var initializers = services.GetServices<IModuleInitializer>().ToList();
 
         foreach (var initializer in initializers)

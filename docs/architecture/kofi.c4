@@ -1,9 +1,13 @@
 // KoFI — architecture model (LikeC4)
 //
-// As-is. Drawn on design day as a proposal, then held up against four months
-// of code and it survived: the API is one container, joined in seminar 2 by
-// the web front end. Level 3 moved for the first time in seminar 4, when the
-// domain project arrived (ADR-0006), followed by the complete Clean refactor.
+// As-is. Drawn on design day as a proposal, then held up against months of
+// code. The API is one container, joined in seminar 2 by the web front end.
+// Level 3 moved in seminar 4 (domain project, ADR-0006) and in seminar 5
+// (modules with contracts, ADR-0008). Since seminar 6 Marketing is the fifth
+// module.
+//
+// Two views of level 3: "modules" shows how the modules work together,
+// "technical" shows the projects and what they reference.
 //
 // Preview:  npx likec4 start
 // Export:   npx likec4 export png -o docs/architecture/
@@ -21,72 +25,130 @@ specification {
     }
   }
   element container
+  element module {
+    style {
+      color green
+    }
+  }
   element component
+  relationship call {
+    line solid
+  }
+  relationship event {
+    line dashed
+    color amber
+  }
 }
 
 model {
   customer = actor 'Customer' {
-    description 'Browses the catalog and places orders'
+    description 'Browses the catalog, orders and subscribes'
   }
 
   operator = actor 'Shop operator' {
-    description 'Maintains the catalog and handles orders'
+    description 'Maintains the catalog, orders and coupons'
   }
 
   kofi = system 'KoFI' {
-    description 'E-shop: catalog, orders, subscriptions, stock, customer e-mails'
+    description 'E-shop: catalog, orders, subscriptions, stock, coupons, customer e-mails'
 
     api = container 'Kofi' {
       technology 'ASP.NET Core 10'
-      description 'REST API and all business logic'
+      description 'One deployable: the host and five modules'
 
-      // --- Level 3: the inside of the container ---
-      // Ordering is extracted; Product and Subscriptions remain in the Clean projects.
-      apiProject = component 'Kofi' {
+      host = component 'Kofi' {
         technology 'ASP.NET Core'
-        description 'Remaining HTTP endpoints, composition root, product/stock adapters and shared transaction'
-      }
-      businessProject = component 'Kofi.Application' {
-        technology 'C# class library'
-        description 'Remaining product and subscription use cases'
-      }
-      dataProject = component 'Kofi.Infrastructure' {
-        technology 'EF Core'
-        description 'Product and subscription persistence, public tables'
-      }
-      domainProject = component 'Kofi.Domain' {
-        technology 'C# class library, no infrastructure'
-        description 'Product and Subscription models and rules'
-      }
-
-      ordering = component 'Kofi.Ordering' {
-        technology 'C# / EF Core'
-        description 'API, Application, Domain and Infrastructure; owns orders and customers in public tables'
-      }
-      orderingContracts = component 'Kofi.Ordering.Contracts' {
-        technology 'Interfaces and plain DTOs'
-        description 'CreateOrder, customer and order-status queries'
+        description 'Host: composes the modules, shared local transaction'
       }
       common = component 'Kofi.Common' {
         technology 'C# class library'
-        description 'Technical request, domain-event and aggregate abstractions; no EF'
+        description 'Technical abstractions, no business owner'
       }
-      apiProject -> ordering 'composes'
-      ordering -> orderingContracts 'implements'
-      businessProject -> orderingContracts 'requests orders and customer information'
-      ordering -> common 'references'
-      businessProject -> common 'references'
-      domainProject -> common 'references'
 
-      apiProject -> businessProject 'references'
-      apiProject -> dataProject 'references'
-      dataProject -> businessProject 'implements ports from'
-      businessProject -> domainProject 'references'
-      dataProject -> domainProject 'references'
+      catalog = module 'Catalog' {
+        description 'Products, offer and prices'
+        impl = component 'Kofi.Catalog' {
+          technology 'C# / EF Core'
+          description 'Model, use cases and the catalog schema'
+        }
+        contracts = component 'Kofi.Catalog.Contracts' {
+          technology 'Interfaces and plain DTOs'
+          description 'What other modules may use'
+        }
+        impl -> contracts 'implements'
+      }
+      host -> catalog.impl 'composes'
+      catalog.impl -> common 'references'
+
+      warehouse = module 'Warehouse' {
+        description 'Available stock'
+        impl = component 'Kofi.Warehouse' {
+          technology 'C# / EF Core'
+          description 'Model, use cases and the warehouse schema'
+        }
+        contracts = component 'Kofi.Warehouse.Contracts' {
+          technology 'Interfaces and plain DTOs'
+          description 'What other modules may use'
+        }
+        impl -> contracts 'implements'
+      }
+      host -> warehouse.impl 'composes'
+      warehouse.impl -> common 'references'
+
+      ordering = module 'Ordering' {
+        description 'Customers, orders and payments'
+        impl = component 'Kofi.Ordering' {
+          technology 'C# / EF Core'
+          description 'Model, use cases and the ordering schema'
+        }
+        contracts = component 'Kofi.Ordering.Contracts' {
+          technology 'Interfaces and plain DTOs'
+          description 'What other modules may use'
+        }
+        impl -> contracts 'implements'
+      }
+      host -> ordering.impl 'composes'
+      ordering.impl -> common 'references'
+
+      subscriptions = module 'Subscriptions' {
+        description 'Plans and deliveries'
+        impl = component 'Kofi.Subscriptions' {
+          technology 'C# / EF Core'
+          description 'Model, use cases and the subscriptions schema'
+        }
+        contracts = component 'Kofi.Subscriptions.Contracts' {
+          technology 'Interfaces and plain DTOs'
+          description 'What other modules may use'
+        }
+        impl -> contracts 'implements'
+      }
+      host -> subscriptions.impl 'composes'
+      subscriptions.impl -> common 'references'
+
+      marketing = module 'Marketing' {
+        description 'Coupons and referral codes'
+        impl = component 'Kofi.Marketing' {
+          technology 'C# / EF Core'
+          description 'Model, use cases and the marketing schema'
+        }
+        contracts = component 'Kofi.Marketing.Contracts' {
+          technology 'Interfaces and plain DTOs'
+          description 'What other modules may use'
+        }
+        impl -> contracts 'implements'
+      }
+      host -> marketing.impl 'composes'
+      marketing.impl -> common 'references'
+
+      subscriptions.impl -[call]-> ordering.contracts 'requests orders and customers'
+      subscriptions.impl -[call]-> catalog.contracts 'asks about products'
+      ordering.impl -[call]-> catalog.contracts 'asks sale eligibility'
+      ordering.impl -[call]-> warehouse.contracts 'reserves stock'
+      catalog.impl -[call]-> warehouse.contracts 'reads stock levels'
+      subscriptions.impl -[call]-> marketing.contracts 'issues a referral coupon'
+      ordering.impl -[call]-> marketing.contracts 'validates and redeems coupons'
     }
 
-    // Added in seminar 2: the shop got a web front end. It runs in the
-    // browser, apart from the API, so it is a container of its own.
     web = container 'Kofi.Web' {
       technology 'React, TypeScript'
       description 'The shop and its administration, in the browser'
@@ -95,18 +157,20 @@ model {
       }
     }
 
-    web -> api 'calls' 'JSON over HTTPS'
-
     db = container 'Database' {
       technology 'PostgreSQL 17'
-      description 'Products, orders, customers, subscriptions, deliveries'
+      description 'One schema per module'
       style {
         shape cylinder
       }
     }
 
-    dataProject -> db 'products and subscriptions' 'SQL (EF Core)'
-    ordering -> db 'orders and customers' 'SQL (EF Core)'
+    web -> api 'calls' 'JSON over HTTPS'
+    catalog.impl -> db 'owns the catalog schema' 'SQL (EF Core)'
+    warehouse.impl -> db 'owns the warehouse schema' 'SQL (EF Core)'
+    ordering.impl -> db 'owns the ordering schema' 'SQL (EF Core)'
+    subscriptions.impl -> db 'owns the subscriptions schema' 'SQL (EF Core)'
+    marketing.impl -> db 'owns the marketing schema' 'SQL (EF Core)'
   }
 
   paymentGateway = externalSystem 'Payment gateway' {
@@ -118,9 +182,9 @@ model {
   }
 
   customer -> web 'browses, orders, pays, manages subscriptions' 'HTTPS'
-  operator -> web 'manages catalog and orders' 'HTTPS'
+  operator -> web 'manages catalog, orders and coupons' 'HTTPS'
   api -> paymentGateway 'charges the card' 'HTTPS'
-  api -> mailServer 'sends confirmations' 'SMTP'
+  api -> mailServer 'sends e-mails' 'SMTP'
 }
 
 views {
@@ -135,8 +199,18 @@ views {
     autoLayout LeftRight
   }
 
-  view insideApi of api {
-    title 'KoFI — components inside the container (C4 L3, first module per ADR-0008)'
-    include *
+  view modules of api {
+    title 'KoFI — modules and how they work together (C4 L3)'
+    include catalog, warehouse, ordering, subscriptions, marketing
+    autoLayout TopBottom
+  }
+
+  view technical of api {
+    title 'KoFI — projects and references (C4 L3, technical)'
+    include host, common, catalog.impl, catalog.contracts, warehouse.impl, warehouse.contracts, ordering.impl, ordering.contracts, subscriptions.impl, subscriptions.contracts, marketing.impl, marketing.contracts
+    exclude * -[call]-> *
+    exclude * -[event]-> *
+    autoLayout TopBottom
   }
 }
+

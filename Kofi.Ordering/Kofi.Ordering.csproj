@@ -8,7 +8,10 @@
 
   <ItemGroup>
     <ProjectReference Include="../Kofi.Common/Kofi.Common.csproj" />
+    <ProjectReference Include="../Kofi.Marketing.Contracts/Kofi.Marketing.Contracts.csproj" />
     <ProjectReference Include="../Kofi.Ordering.Contracts/Kofi.Ordering.Contracts.csproj" />
+    <ProjectReference Include="../Kofi.Catalog.Contracts/Kofi.Catalog.Contracts.csproj" />
+    <ProjectReference Include="../Kofi.Warehouse.Contracts/Kofi.Warehouse.Contracts.csproj" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
   </ItemGroup>
 

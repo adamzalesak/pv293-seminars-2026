@@ -1,10 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { postOrders } from '@/api/generated/endpoints'
+import { getCouponsCodeCheck, postOrders } from '@/api/generated/endpoints'
+import type { CouponCheck } from '@/api/generated/model'
 import { OrderSummary } from '@/components/order-summary'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -28,6 +30,7 @@ const schema = z.object({
   zip: z.string().trim().regex(/^(?:[0-9]{5}|[0-9]{3} [0-9]{2})$/, 'Enter a five-digit postcode.'),
 })
 type Address = z.infer<typeof schema>
+type Placement = Address & { couponCode: string | null }
 
 const ADDRESS_KEY = 'kofi.address'
 function rememberedAddress(): Address {
@@ -43,14 +46,18 @@ function Checkout() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const form = useForm<Address>({ resolver: zodResolver(schema), defaultValues: rememberedAddress() })
+  const [code, setCode] = useState('')
+  const [coupon, setCoupon] = useState<CouponCheck | null>(null)
+  const check = useMutation({ mutationFn: (value: string) => getCouponsCodeCheck(value.trim()), onSuccess: setCoupon })
 
   const place = useMutation({
-    mutationFn: (address: Address) =>
+    mutationFn: ({ couponCode, ...address }: Placement) =>
       postOrders({
         ...address,
         items: cart.lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
+        couponCode,
       }),
-    onSuccess: async (order, address) => {
+    onSuccess: async (order, { couponCode: _, ...address }) => {
       try {
         localStorage.setItem(ADDRESS_KEY, JSON.stringify(address))
       } catch {
@@ -76,6 +83,8 @@ function Checkout() {
   }
 
   const shipping = shippingFor(cart.itemsTotal)
+  // The same rule as Ordering: a percentage of the items, delivery stays as it is.
+  const discount = coupon ? Math.round(cart.itemsTotal * Number(coupon.discountPercent)) / 100 : 0
   const fields = [
     { name: 'customerName', label: 'Full name', autoComplete: 'name' },
     { name: 'street', label: 'Street and number', autoComplete: 'street-address' },
@@ -87,7 +96,7 @@ function Checkout() {
     <div className="space-y-8">
       <h1 className="text-3xl font-bold">Checkout</h1>
       <form
-        onSubmit={form.handleSubmit((values) => place.mutate(values))}
+        onSubmit={form.handleSubmit((values) => place.mutate({ ...values, couponCode: coupon?.code ?? null }))}
         noValidate
         className="grid gap-8 lg:grid-cols-[1fr_22rem] lg:items-start"
       >
@@ -122,7 +131,43 @@ function Checkout() {
                 </li>
               ))}
             </ul>
-            <OrderSummary itemsTotal={cart.itemsTotal} shipping={shipping} total={cart.itemsTotal + shipping} />
+            <OrderSummary
+              itemsTotal={cart.itemsTotal}
+              discount={discount}
+              couponCode={coupon?.code}
+              shipping={shipping}
+              total={cart.itemsTotal - discount + shipping}
+            />
+            <Field data-invalid={check.isError}>
+              <FieldLabel htmlFor="couponCode">Coupon code</FieldLabel>
+              <div className="flex gap-2">
+                <Input
+                  id="couponCode"
+                  value={coupon?.code ?? code}
+                  disabled={!!coupon}
+                  onChange={(e) => {
+                    setCode(e.target.value)
+                    check.reset()
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      if (code.trim()) check.mutate(code)
+                    }
+                  }}
+                />
+                {coupon ? (
+                  <Button type="button" variant="outline" onClick={() => setCoupon(null)}>
+                    Remove
+                  </Button>
+                ) : (
+                  <Button type="button" variant="outline" disabled={!code.trim() || check.isPending} onClick={() => check.mutate(code)}>
+                    Apply
+                  </Button>
+                )}
+              </div>
+              {check.isError && <FieldError>{check.error.message}</FieldError>}
+            </Field>
             {place.isError && (
               <Alert variant="destructive">
                 <AlertDescription>{place.error.message}</AlertDescription>

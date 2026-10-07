@@ -13,7 +13,7 @@ internal sealed class ModuleInitializer(OrderingDbContext db) : IModuleInitializ
         check.CommandText = "SELECT to_regclass(@table) IS NOT NULL";
         var table = check.CreateParameter();
         table.ParameterName = "table";
-        table.Value = "public.\"Orders\"";
+        table.Value = "ordering.\"Orders\"";
         check.Parameters.Add(table);
 
         if (!(bool)(await check.ExecuteScalarAsync(ct))!)

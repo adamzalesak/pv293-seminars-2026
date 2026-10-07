@@ -1,10 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <ProjectReference Include="../Kofi.Catalog/Kofi.Catalog.csproj" />
+    <ProjectReference Include="../Kofi.Warehouse/Kofi.Warehouse.csproj" />
     <ProjectReference Include="../Kofi.Ordering/Kofi.Ordering.csproj" />
+    <ProjectReference Include="../Kofi.Subscriptions/Kofi.Subscriptions.csproj" />
+    <ProjectReference Include="../Kofi.Marketing/Kofi.Marketing.csproj" />
     <ProjectReference Include="..\Kofi.ServiceDefaults\Kofi.ServiceDefaults.csproj" />
-    <ProjectReference Include="..\Kofi.Infrastructure\Kofi.Infrastructure.csproj" />
-    <ProjectReference Include="..\Kofi.Application\Kofi.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,4 +22,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Include="Migrations/*.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
