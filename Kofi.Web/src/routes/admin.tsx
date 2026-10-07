@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useMatchRoute, useNavigate } from '@tanstack/react-router'
-import { LayoutDashboard, LogOut, Package, Repeat, Store, Users } from 'lucide-react'
+import { LayoutDashboard, LogOut, Package, Repeat, Store, TicketPercent, Users } from 'lucide-react'
 import { AccessDenied } from '@/components/states'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Wordmark } from '@/components/wordmark'
@@ -33,6 +33,7 @@ const nav = [
   { to: '/admin/subscriptions', label: 'Subscriptions', icon: Repeat, exact: false },
   { to: '/admin/products', label: 'Products', icon: Store, exact: false },
   { to: '/admin/customers', label: 'Customers', icon: Users, exact: false },
+  { to: '/admin/coupons', label: 'Coupons', icon: TicketPercent, exact: false },
 ] as const
 
 function AdminLayout() {

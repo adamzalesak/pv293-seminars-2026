@@ -174,6 +174,8 @@ function AdminOrder() {
             <OrderSummary
               className="mt-4 ml-auto max-w-64"
               itemsTotal={Number(o.itemsTotal)}
+              discount={Number(o.discount)}
+              couponCode={o.couponCode}
               shipping={Number(o.shipping)}
               total={Number(o.total)}
             />

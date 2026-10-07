@@ -1,5 +1,6 @@
 using Kofi.Common.Abstractions;
 using Kofi.Common.Services;
+using Kofi.Marketing.Contracts;
 using Kofi.Ordering.Application.Repositories;
 using Kofi.Ordering.Domain.Orders;
 
@@ -7,7 +8,8 @@ namespace Kofi.Ordering.Application.Features.Orders.ConfirmOrderPayment;
 
 public class ConfirmOrderPaymentHandler(
     IOrderRepository orders,
-    IPaymentGatewayClient payments) : ICommandHandler<ConfirmOrderPaymentCommand, ConfirmOrderPaymentResponse>
+    IPaymentGatewayClient payments,
+    IMarketing marketing) : ICommandHandler<ConfirmOrderPaymentCommand, ConfirmOrderPaymentResponse>
 {
     public async Task<ConfirmOrderPaymentResponse> Handle(ConfirmOrderPaymentCommand command, CancellationToken ct)
     {
@@ -33,6 +35,11 @@ public class ConfirmOrderPaymentHandler(
         else if (status == PaymentStatus.Captured && order.Status == OrderStatus.New)
         {
             order.RecordPayment(command.PaymentId);
+
+            if (order.Coupon is { } coupon)
+            {
+                await marketing.RedeemCoupon(coupon.Code, order.CustomerId, order.Id, ct);
+            }
         }
 
         // The customer is told the shop's outcome, not the provider's own words.

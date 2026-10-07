@@ -49,6 +49,7 @@ public class GetOrdersHandler(
                 o.Status,
                 o.CreatedAt,
                 ItemsTotal = o.Items.Sum(i => i.UnitPrice.Amount * i.Quantity.Value),
+                DiscountPercent = o.Coupon != null ? o.Coupon.DiscountPercent : (int?)null,
             })
             .ToListAsync(ct);
 
@@ -62,7 +63,7 @@ public class GetOrdersHandler(
                 CustomerName = row.CustomerName,
                 Status = row.Status.ToString(),
                 CreatedAt = row.CreatedAt,
-                Total = Math.Round(row.ItemsTotal + pricing.CalculateShipping(row.ItemsTotal), 2),
+                Total = pricing.CalculateTotal(row.ItemsTotal, row.DiscountPercent),
             });
         }
 

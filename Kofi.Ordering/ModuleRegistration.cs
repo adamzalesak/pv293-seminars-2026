@@ -1,6 +1,7 @@
 using System.Reflection;
 using FluentValidation;
 using Kofi.Common.Bootstrap;
+using Kofi.Common.Persistence;
 using Kofi.Ordering.API.Endpoints;
 using Kofi.Ordering.Application;
 using Kofi.Ordering.Application.Persistence;
@@ -24,7 +25,7 @@ public static class ModuleRegistration
 
         services.AddDbContext<OrderingDbContext>((sp, options) => options.UseNpgsql(sp.GetRequiredService<NpgsqlConnection>()));
         services.AddScoped<IOrderingDbContext>(sp => sp.GetRequiredService<OrderingDbContext>());
-        services.AddScoped<DbContext>(sp => sp.GetRequiredService<OrderingDbContext>());
+        services.AddScoped<AggregateDbContext>(sp => sp.GetRequiredService<OrderingDbContext>());
 
         services.AddScoped<IOrdering, OrderingModule>();
         services.AddScoped<IOrderRepository, OrderRepository>();

@@ -47,6 +47,9 @@ function ShopLayout() {
                 <Link to="/subscriptions" className={navLink}>
                   Subscriptions
                 </Link>
+                <Link to="/coupons" className={navLink}>
+                  Coupons
+                </Link>
               </>
             )}
             {user?.role === 'Administrator' && (

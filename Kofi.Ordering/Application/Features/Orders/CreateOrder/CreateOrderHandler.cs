@@ -1,30 +1,40 @@
+using Kofi.Catalog.Contracts;
 using Kofi.Common.Abstractions;
 using Kofi.Common.Services;
-using Kofi.Ordering.Application.Ports;
+using Kofi.Marketing.Contracts;
 using Kofi.Ordering.Application.Repositories;
 using Kofi.Ordering.Application.Services;
 using Kofi.Ordering.Domain.Orders;
+using Kofi.Warehouse.Contracts;
 
 namespace Kofi.Ordering.Application.Features.Orders.CreateOrder;
 
 public class CreateOrderHandler(
     IOrderRepository orders,
-    IProductCatalog products,
+    ICatalog products,
     ICustomerRepository customers,
-    IOrderStock stock,
+    IWarehouse stock,
     IPricingService pricing,
     IOrderEmailService email,
+    IMarketing marketing,
     ICurrentUser user) : ICommandHandler<CreateOrderCommand, CreateOrderResponse>
 {
     public async Task<CreateOrderResponse> Handle(CreateOrderCommand command, CancellationToken ct)
     {
         var customer = await customers.GetById(user.CustomerId ?? Guid.Empty) ?? throw new NotFoundException("Customer not found");
 
+        AppliedCoupon? coupon = null;
+        if (!string.IsNullOrWhiteSpace(command.CouponCode))
+        {
+            var discount = await marketing.ValidateCoupon(command.CouponCode, customer.Id, ct);
+            coupon = new AppliedCoupon(discount.Code, discount.DiscountPercent);
+        }
+
         var lines = new List<OrderItem>();
 
         foreach (var requested in command.Items)
         {
-            var product = await products.GetProduct(requested.ProductId) ?? throw new NotFoundException("Product not found");
+            var product = await products.GetProduct(requested.ProductId, ct) ?? throw new NotFoundException("Product not found");
             if (!product.CanBeSold)
             {
                 throw new DomainRuleException("Product is no longer available");
@@ -36,12 +46,11 @@ public class CreateOrderHandler(
         }
 
         var order = Order.Create(Guid.NewGuid(), customer.Id, command.CustomerName, customer.Email,
-            new ShippingAddress(command.Street, command.City, command.Zip), DateTime.Now, lines);
+            new ShippingAddress(command.Street, command.City, command.Zip), DateTime.Now, lines, coupon);
         orders.Add(order);
         await email.SendOrderConfirmation(order);
-        var itemsTotal = pricing.CalculateItemsTotal(order.Items);
+        var total = pricing.CalculateTotal(pricing.CalculateItemsTotal(order.Items), order.Coupon?.DiscountPercent);
 
-        return new CreateOrderResponse
-            { Id = order.Id, Status = order.Status.ToString(), Total = Math.Round(itemsTotal + pricing.CalculateShipping(itemsTotal), 2) };
+        return new CreateOrderResponse { Id = order.Id, Status = order.Status.ToString(), Total = total };
     }
 }

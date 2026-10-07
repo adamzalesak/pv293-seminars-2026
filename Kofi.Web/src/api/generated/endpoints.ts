@@ -31,6 +31,8 @@ import type {
   ChangeProductPriceRequest,
   ConfirmOrderPaymentResponse,
   ConfirmPaymentCardChangeResponse,
+  CouponCheck,
+  CouponSummary,
   CreateOrderCommand,
   CreateOrderResponse,
   CreateProductCommand,
@@ -43,8 +45,11 @@ import type {
   GetPaymentCardReturnParams,
   GetProductsParams,
   GetSubscriptionsIdCardReturnParams,
+  IssueCouponCommand,
+  IssueCouponResponse,
   LoginRequest,
   LoginResponse,
+  MyCoupon,
   OrderCountResponse,
   OrderDetail,
   OrderSummary,
@@ -63,6 +68,7 @@ import type {
   SubscribeResponse,
   SubscriptionDetail,
   SubscriptionSummary,
+  UpdateCouponRequest,
   UpdateProductRequest,
   UpdateShippingAddressRequest
 } from './model';
@@ -170,6 +176,89 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getPostAuthLoginMutationOptions(options), queryClient);
+    }
+
+export const getPostProductsIdRestockUrl = (id: string,) => {
+
+
+
+
+  return `/products/${id}/restock`
+}
+
+export const postProductsIdRestock = async (id: string,
+    restockProductRequest: RestockProductRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<void>(getPostProductsIdRestockUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(restockProductRequest)
+  }
+);}
+
+
+
+
+
+export const getPostProductsIdRestockMutationKey = () => ['postProductsIdRestock'] as const;
+
+export const getPostProductsIdRestockMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdRestock>>, TError,PostProductsIdRestockMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postProductsIdRestock>>, TError,PostProductsIdRestockMutationVariables, TContext> => {
+
+const mutationKey = getPostProductsIdRestockMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postProductsIdRestock>>, PostProductsIdRestockMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  postProductsIdRestock(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostProductsIdRestockMutationResult = NonNullable<Awaited<ReturnType<typeof postProductsIdRestock>>>
+    export type PostProductsIdRestockMutationBody = BodyType<RestockProductRequest>
+    export type PostProductsIdRestockMutationError = ErrorType<unknown>
+    export type PostProductsIdRestockMutationVariables = {id: string;data: BodyType<RestockProductRequest>}
+
+    export const usePostProductsIdRestock = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdRestock>>, TError,PostProductsIdRestockMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postProductsIdRestock>>,
+        TError,
+        PostProductsIdRestockMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPostProductsIdRestockMutationOptions(options), queryClient);
     }
 
 export const getGetOrdersUrl = (params?: GetOrdersParams,) => {
@@ -1871,738 +1960,6 @@ export function useGetPaymentCardReturn<TData = Awaited<ReturnType<typeof getPay
 
 
 
-export const getGetProductsUrl = (params?: GetProductsParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/products?${stringifiedParams}` : `/products`
-}
-
-export const getProducts = async (params?: GetProductsParams, options?: Parameters<typeof apiFetch>[1]): Promise<PagedResultOfProductSummary> => {
-
-  return apiFetch<PagedResultOfProductSummary>(getGetProductsUrl(params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getGetProductsQueryKey = (params?: GetProductsParams,) => {
-    return [
-    `/products`, ...(params ? [params] : [])
-    ] as const;
-    }
-
-
-export const getGetProductsQueryOptions = <TData = Awaited<ReturnType<typeof getProducts>>, TError = ErrorType<unknown>>(params?: GetProductsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProducts>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetProductsQueryKey(params);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProducts>>> = ({ signal }) => getProducts(params, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProducts>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
-}
-
-export type GetProductsQueryResult = NonNullable<Awaited<ReturnType<typeof getProducts>>>
-export type GetProductsQueryError = ErrorType<unknown>
-
-
-export function useGetProducts<TData = Awaited<ReturnType<typeof getProducts>>, TError = ErrorType<unknown>>(
- params: undefined |  GetProductsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProducts>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getProducts>>,
-          TError,
-          Awaited<ReturnType<typeof getProducts>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetProducts<TData = Awaited<ReturnType<typeof getProducts>>, TError = ErrorType<unknown>>(
- params?: GetProductsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProducts>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getProducts>>,
-          TError,
-          Awaited<ReturnType<typeof getProducts>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetProducts<TData = Awaited<ReturnType<typeof getProducts>>, TError = ErrorType<unknown>>(
- params?: GetProductsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProducts>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-
-export function useGetProducts<TData = Awaited<ReturnType<typeof getProducts>>, TError = ErrorType<unknown>>(
- params?: GetProductsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProducts>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-
-  const queryOptions = getGetProductsQueryOptions(params,options)
-
-  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
-
-export const getPostProductsUrl = () => {
-
-
-
-
-  return `/products`
-}
-
-export const postProducts = async (createProductCommand: CreateProductCommand, options?: Parameters<typeof apiFetch>[1]): Promise<CreateProductResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-return apiFetch<CreateProductResponse>(getPostProductsUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(createProductCommand)
-  }
-);}
-
-
-
-
-
-export const getPostProductsMutationKey = () => ['postProducts'] as const;
-
-export const getPostProductsMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProducts>>, TError,PostProductsMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof postProducts>>, TError,PostProductsMutationVariables, TContext> => {
-
-const mutationKey = getPostProductsMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postProducts>>, PostProductsMutationVariables> = (props) => {
-          const {data} = props ?? {};
-
-          return  postProducts(data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostProductsMutationResult = NonNullable<Awaited<ReturnType<typeof postProducts>>>
-    export type PostProductsMutationBody = BodyType<CreateProductCommand>
-    export type PostProductsMutationError = ErrorType<unknown>
-    export type PostProductsMutationVariables = {data: BodyType<CreateProductCommand>}
-
-    export const usePostProducts = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProducts>>, TError,PostProductsMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postProducts>>,
-        TError,
-        PostProductsMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPostProductsMutationOptions(options), queryClient);
-    }
-
-export const getGetProductsIdUrl = (id: string,) => {
-
-
-
-
-  return `/products/${id}`
-}
-
-export const getProductsId = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<ProductDetail> => {
-
-  return apiFetch<ProductDetail>(getGetProductsIdUrl(id),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getGetProductsIdQueryKey = (id: string,) => {
-    return [
-    `/products/${id}`
-    ] as const;
-    }
-
-
-export const getGetProductsIdQueryOptions = <TData = Awaited<ReturnType<typeof getProductsId>>, TError = ErrorType<void>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProductsId>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetProductsIdQueryKey(id);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProductsId>>> = ({ signal }) => getProductsId(id, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProductsId>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
-}
-
-export type GetProductsIdQueryResult = NonNullable<Awaited<ReturnType<typeof getProductsId>>>
-export type GetProductsIdQueryError = ErrorType<void>
-
-
-export function useGetProductsId<TData = Awaited<ReturnType<typeof getProductsId>>, TError = ErrorType<void>>(
- id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProductsId>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getProductsId>>,
-          TError,
-          Awaited<ReturnType<typeof getProductsId>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetProductsId<TData = Awaited<ReturnType<typeof getProductsId>>, TError = ErrorType<void>>(
- id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProductsId>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getProductsId>>,
-          TError,
-          Awaited<ReturnType<typeof getProductsId>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetProductsId<TData = Awaited<ReturnType<typeof getProductsId>>, TError = ErrorType<void>>(
- id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProductsId>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-
-export function useGetProductsId<TData = Awaited<ReturnType<typeof getProductsId>>, TError = ErrorType<void>>(
- id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProductsId>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-
-  const queryOptions = getGetProductsIdQueryOptions(id,options)
-
-  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
-
-export const getPutProductsIdUrl = (id: string,) => {
-
-
-
-
-  return `/products/${id}`
-}
-
-export const putProductsId = async (id: string,
-    updateProductRequest: UpdateProductRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-return apiFetch<void>(getPutProductsIdUrl(id),
-  {
-    ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(updateProductRequest)
-  }
-);}
-
-
-
-
-
-export const getPutProductsIdMutationKey = () => ['putProductsId'] as const;
-
-export const getPutProductsIdMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putProductsId>>, TError,PutProductsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof putProductsId>>, TError,PutProductsIdMutationVariables, TContext> => {
-
-const mutationKey = getPutProductsIdMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putProductsId>>, PutProductsIdMutationVariables> = (props) => {
-          const {id,data} = props ?? {};
-
-          return  putProductsId(id,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PutProductsIdMutationResult = NonNullable<Awaited<ReturnType<typeof putProductsId>>>
-    export type PutProductsIdMutationBody = BodyType<UpdateProductRequest>
-    export type PutProductsIdMutationError = ErrorType<unknown>
-    export type PutProductsIdMutationVariables = {id: string;data: BodyType<UpdateProductRequest>}
-
-    export const usePutProductsId = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putProductsId>>, TError,PutProductsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof putProductsId>>,
-        TError,
-        PutProductsIdMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPutProductsIdMutationOptions(options), queryClient);
-    }
-
-export const getPutProductsIdPriceUrl = (id: string,) => {
-
-
-
-
-  return `/products/${id}/price`
-}
-
-export const putProductsIdPrice = async (id: string,
-    changeProductPriceRequest: ChangeProductPriceRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-return apiFetch<void>(getPutProductsIdPriceUrl(id),
-  {
-    ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(changeProductPriceRequest)
-  }
-);}
-
-
-
-
-
-export const getPutProductsIdPriceMutationKey = () => ['putProductsIdPrice'] as const;
-
-export const getPutProductsIdPriceMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putProductsIdPrice>>, TError,PutProductsIdPriceMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof putProductsIdPrice>>, TError,PutProductsIdPriceMutationVariables, TContext> => {
-
-const mutationKey = getPutProductsIdPriceMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putProductsIdPrice>>, PutProductsIdPriceMutationVariables> = (props) => {
-          const {id,data} = props ?? {};
-
-          return  putProductsIdPrice(id,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PutProductsIdPriceMutationResult = NonNullable<Awaited<ReturnType<typeof putProductsIdPrice>>>
-    export type PutProductsIdPriceMutationBody = BodyType<ChangeProductPriceRequest>
-    export type PutProductsIdPriceMutationError = ErrorType<unknown>
-    export type PutProductsIdPriceMutationVariables = {id: string;data: BodyType<ChangeProductPriceRequest>}
-
-    export const usePutProductsIdPrice = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putProductsIdPrice>>, TError,PutProductsIdPriceMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof putProductsIdPrice>>,
-        TError,
-        PutProductsIdPriceMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPutProductsIdPriceMutationOptions(options), queryClient);
-    }
-
-export const getPostProductsIdDeactivateUrl = (id: string,) => {
-
-
-
-
-  return `/products/${id}/deactivate`
-}
-
-export const postProductsIdDeactivate = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
-
-  return apiFetch<void>(getPostProductsIdDeactivateUrl(id),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
-
-
-
-export const getPostProductsIdDeactivateMutationKey = () => ['postProductsIdDeactivate'] as const;
-
-export const getPostProductsIdDeactivateMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdDeactivate>>, TError,PostProductsIdDeactivateMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof postProductsIdDeactivate>>, TError,PostProductsIdDeactivateMutationVariables, TContext> => {
-
-const mutationKey = getPostProductsIdDeactivateMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postProductsIdDeactivate>>, PostProductsIdDeactivateMutationVariables> = (props) => {
-          const {id} = props ?? {};
-
-          return  postProductsIdDeactivate(id,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostProductsIdDeactivateMutationResult = NonNullable<Awaited<ReturnType<typeof postProductsIdDeactivate>>>
-
-    export type PostProductsIdDeactivateMutationError = ErrorType<unknown>
-    export type PostProductsIdDeactivateMutationVariables = {id: string}
-
-    export const usePostProductsIdDeactivate = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdDeactivate>>, TError,PostProductsIdDeactivateMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postProductsIdDeactivate>>,
-        TError,
-        PostProductsIdDeactivateMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPostProductsIdDeactivateMutationOptions(options), queryClient);
-    }
-
-export const getPostProductsIdActivateUrl = (id: string,) => {
-
-
-
-
-  return `/products/${id}/activate`
-}
-
-export const postProductsIdActivate = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
-
-  return apiFetch<void>(getPostProductsIdActivateUrl(id),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
-
-
-
-export const getPostProductsIdActivateMutationKey = () => ['postProductsIdActivate'] as const;
-
-export const getPostProductsIdActivateMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdActivate>>, TError,PostProductsIdActivateMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof postProductsIdActivate>>, TError,PostProductsIdActivateMutationVariables, TContext> => {
-
-const mutationKey = getPostProductsIdActivateMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postProductsIdActivate>>, PostProductsIdActivateMutationVariables> = (props) => {
-          const {id} = props ?? {};
-
-          return  postProductsIdActivate(id,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostProductsIdActivateMutationResult = NonNullable<Awaited<ReturnType<typeof postProductsIdActivate>>>
-
-    export type PostProductsIdActivateMutationError = ErrorType<unknown>
-    export type PostProductsIdActivateMutationVariables = {id: string}
-
-    export const usePostProductsIdActivate = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdActivate>>, TError,PostProductsIdActivateMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postProductsIdActivate>>,
-        TError,
-        PostProductsIdActivateMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPostProductsIdActivateMutationOptions(options), queryClient);
-    }
-
-export const getPostProductsIdRestockUrl = (id: string,) => {
-
-
-
-
-  return `/products/${id}/restock`
-}
-
-export const postProductsIdRestock = async (id: string,
-    restockProductRequest: RestockProductRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-return apiFetch<void>(getPostProductsIdRestockUrl(id),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(restockProductRequest)
-  }
-);}
-
-
-
-
-
-export const getPostProductsIdRestockMutationKey = () => ['postProductsIdRestock'] as const;
-
-export const getPostProductsIdRestockMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdRestock>>, TError,PostProductsIdRestockMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof postProductsIdRestock>>, TError,PostProductsIdRestockMutationVariables, TContext> => {
-
-const mutationKey = getPostProductsIdRestockMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postProductsIdRestock>>, PostProductsIdRestockMutationVariables> = (props) => {
-          const {id,data} = props ?? {};
-
-          return  postProductsIdRestock(id,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostProductsIdRestockMutationResult = NonNullable<Awaited<ReturnType<typeof postProductsIdRestock>>>
-    export type PostProductsIdRestockMutationBody = BodyType<RestockProductRequest>
-    export type PostProductsIdRestockMutationError = ErrorType<unknown>
-    export type PostProductsIdRestockMutationVariables = {id: string;data: BodyType<RestockProductRequest>}
-
-    export const usePostProductsIdRestock = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdRestock>>, TError,PostProductsIdRestockMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postProductsIdRestock>>,
-        TError,
-        PostProductsIdRestockMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPostProductsIdRestockMutationOptions(options), queryClient);
-    }
-
-export const getPostProductsIdDiscontinueUrl = (id: string,) => {
-
-
-
-
-  return `/products/${id}/discontinue`
-}
-
-export const postProductsIdDiscontinue = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
-
-  return apiFetch<void>(getPostProductsIdDiscontinueUrl(id),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
-
-
-
-export const getPostProductsIdDiscontinueMutationKey = () => ['postProductsIdDiscontinue'] as const;
-
-export const getPostProductsIdDiscontinueMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdDiscontinue>>, TError,PostProductsIdDiscontinueMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof postProductsIdDiscontinue>>, TError,PostProductsIdDiscontinueMutationVariables, TContext> => {
-
-const mutationKey = getPostProductsIdDiscontinueMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postProductsIdDiscontinue>>, PostProductsIdDiscontinueMutationVariables> = (props) => {
-          const {id} = props ?? {};
-
-          return  postProductsIdDiscontinue(id,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostProductsIdDiscontinueMutationResult = NonNullable<Awaited<ReturnType<typeof postProductsIdDiscontinue>>>
-
-    export type PostProductsIdDiscontinueMutationError = ErrorType<unknown>
-    export type PostProductsIdDiscontinueMutationVariables = {id: string}
-
-    export const usePostProductsIdDiscontinue = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdDiscontinue>>, TError,PostProductsIdDiscontinueMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postProductsIdDiscontinue>>,
-        TError,
-        PostProductsIdDiscontinueMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPostProductsIdDiscontinueMutationOptions(options), queryClient);
-    }
-
 export const getGetSubscriptionsUrl = () => {
 
 
@@ -3784,5 +3141,1172 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getPutSubscriptionsIdPlanMutationOptions(options), queryClient);
+    }
+
+export const getGetCouponsUrl = () => {
+
+
+
+
+  return `/coupons`
+}
+
+export const getCoupons = async ( options?: Parameters<typeof apiFetch>[1]): Promise<CouponSummary[]> => {
+
+  return apiFetch<CouponSummary[]>(getGetCouponsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCouponsQueryKey = () => {
+    return [
+    `/coupons`
+    ] as const;
+    }
+
+
+export const getGetCouponsQueryOptions = <TData = Awaited<ReturnType<typeof getCoupons>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCoupons>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCouponsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoupons>>> = ({ signal }) => getCoupons({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoupons>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetCouponsQueryResult = NonNullable<Awaited<ReturnType<typeof getCoupons>>>
+export type GetCouponsQueryError = ErrorType<unknown>
+
+
+export function useGetCoupons<TData = Awaited<ReturnType<typeof getCoupons>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCoupons>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCoupons>>,
+          TError,
+          Awaited<ReturnType<typeof getCoupons>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCoupons<TData = Awaited<ReturnType<typeof getCoupons>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCoupons>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCoupons>>,
+          TError,
+          Awaited<ReturnType<typeof getCoupons>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCoupons<TData = Awaited<ReturnType<typeof getCoupons>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCoupons>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetCoupons<TData = Awaited<ReturnType<typeof getCoupons>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCoupons>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetCouponsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPostCouponsUrl = () => {
+
+
+
+
+  return `/coupons`
+}
+
+export const postCoupons = async (issueCouponCommand: IssueCouponCommand, options?: Parameters<typeof apiFetch>[1]): Promise<IssueCouponResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<IssueCouponResponse>(getPostCouponsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(issueCouponCommand)
+  }
+);}
+
+
+
+
+
+export const getPostCouponsMutationKey = () => ['postCoupons'] as const;
+
+export const getPostCouponsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postCoupons>>, TError,PostCouponsMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postCoupons>>, TError,PostCouponsMutationVariables, TContext> => {
+
+const mutationKey = getPostCouponsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postCoupons>>, PostCouponsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  postCoupons(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostCouponsMutationResult = NonNullable<Awaited<ReturnType<typeof postCoupons>>>
+    export type PostCouponsMutationBody = BodyType<IssueCouponCommand>
+    export type PostCouponsMutationError = ErrorType<unknown>
+    export type PostCouponsMutationVariables = {data: BodyType<IssueCouponCommand>}
+
+    export const usePostCoupons = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postCoupons>>, TError,PostCouponsMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postCoupons>>,
+        TError,
+        PostCouponsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPostCouponsMutationOptions(options), queryClient);
+    }
+
+export const getGetCouponsMineUrl = () => {
+
+
+
+
+  return `/coupons/mine`
+}
+
+export const getCouponsMine = async ( options?: Parameters<typeof apiFetch>[1]): Promise<MyCoupon[]> => {
+
+  return apiFetch<MyCoupon[]>(getGetCouponsMineUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCouponsMineQueryKey = () => {
+    return [
+    `/coupons/mine`
+    ] as const;
+    }
+
+
+export const getGetCouponsMineQueryOptions = <TData = Awaited<ReturnType<typeof getCouponsMine>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCouponsMine>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCouponsMineQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCouponsMine>>> = ({ signal }) => getCouponsMine({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCouponsMine>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetCouponsMineQueryResult = NonNullable<Awaited<ReturnType<typeof getCouponsMine>>>
+export type GetCouponsMineQueryError = ErrorType<unknown>
+
+
+export function useGetCouponsMine<TData = Awaited<ReturnType<typeof getCouponsMine>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCouponsMine>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCouponsMine>>,
+          TError,
+          Awaited<ReturnType<typeof getCouponsMine>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCouponsMine<TData = Awaited<ReturnType<typeof getCouponsMine>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCouponsMine>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCouponsMine>>,
+          TError,
+          Awaited<ReturnType<typeof getCouponsMine>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCouponsMine<TData = Awaited<ReturnType<typeof getCouponsMine>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCouponsMine>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetCouponsMine<TData = Awaited<ReturnType<typeof getCouponsMine>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCouponsMine>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetCouponsMineQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCouponsCodeCheckUrl = (code: string,) => {
+
+
+
+
+  return `/coupons/${code}/check`
+}
+
+export const getCouponsCodeCheck = async (code: string, options?: Parameters<typeof apiFetch>[1]): Promise<CouponCheck> => {
+
+  return apiFetch<CouponCheck>(getGetCouponsCodeCheckUrl(code),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCouponsCodeCheckQueryKey = (code: string,) => {
+    return [
+    `/coupons/${code}/check`
+    ] as const;
+    }
+
+
+export const getGetCouponsCodeCheckQueryOptions = <TData = Awaited<ReturnType<typeof getCouponsCodeCheck>>, TError = ErrorType<unknown>>(code: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCouponsCodeCheck>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCouponsCodeCheckQueryKey(code);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCouponsCodeCheck>>> = ({ signal }) => getCouponsCodeCheck(code, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: code !== null && code !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCouponsCodeCheck>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetCouponsCodeCheckQueryResult = NonNullable<Awaited<ReturnType<typeof getCouponsCodeCheck>>>
+export type GetCouponsCodeCheckQueryError = ErrorType<unknown>
+
+
+export function useGetCouponsCodeCheck<TData = Awaited<ReturnType<typeof getCouponsCodeCheck>>, TError = ErrorType<unknown>>(
+ code: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCouponsCodeCheck>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCouponsCodeCheck>>,
+          TError,
+          Awaited<ReturnType<typeof getCouponsCodeCheck>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCouponsCodeCheck<TData = Awaited<ReturnType<typeof getCouponsCodeCheck>>, TError = ErrorType<unknown>>(
+ code: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCouponsCodeCheck>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCouponsCodeCheck>>,
+          TError,
+          Awaited<ReturnType<typeof getCouponsCodeCheck>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCouponsCodeCheck<TData = Awaited<ReturnType<typeof getCouponsCodeCheck>>, TError = ErrorType<unknown>>(
+ code: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCouponsCodeCheck>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetCouponsCodeCheck<TData = Awaited<ReturnType<typeof getCouponsCodeCheck>>, TError = ErrorType<unknown>>(
+ code: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCouponsCodeCheck>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetCouponsCodeCheckQueryOptions(code,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPutCouponsIdUrl = (id: string,) => {
+
+
+
+
+  return `/coupons/${id}`
+}
+
+export const putCouponsId = async (id: string,
+    updateCouponRequest: UpdateCouponRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<void>(getPutCouponsIdUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateCouponRequest)
+  }
+);}
+
+
+
+
+
+export const getPutCouponsIdMutationKey = () => ['putCouponsId'] as const;
+
+export const getPutCouponsIdMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putCouponsId>>, TError,PutCouponsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof putCouponsId>>, TError,PutCouponsIdMutationVariables, TContext> => {
+
+const mutationKey = getPutCouponsIdMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putCouponsId>>, PutCouponsIdMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  putCouponsId(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutCouponsIdMutationResult = NonNullable<Awaited<ReturnType<typeof putCouponsId>>>
+    export type PutCouponsIdMutationBody = BodyType<UpdateCouponRequest>
+    export type PutCouponsIdMutationError = ErrorType<unknown>
+    export type PutCouponsIdMutationVariables = {id: string;data: BodyType<UpdateCouponRequest>}
+
+    export const usePutCouponsId = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putCouponsId>>, TError,PutCouponsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putCouponsId>>,
+        TError,
+        PutCouponsIdMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPutCouponsIdMutationOptions(options), queryClient);
+    }
+
+export const getPostCouponsIdInvalidateUrl = (id: string,) => {
+
+
+
+
+  return `/coupons/${id}/invalidate`
+}
+
+export const postCouponsIdInvalidate = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+  return apiFetch<void>(getPostCouponsIdInvalidateUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPostCouponsIdInvalidateMutationKey = () => ['postCouponsIdInvalidate'] as const;
+
+export const getPostCouponsIdInvalidateMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postCouponsIdInvalidate>>, TError,PostCouponsIdInvalidateMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postCouponsIdInvalidate>>, TError,PostCouponsIdInvalidateMutationVariables, TContext> => {
+
+const mutationKey = getPostCouponsIdInvalidateMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postCouponsIdInvalidate>>, PostCouponsIdInvalidateMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  postCouponsIdInvalidate(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostCouponsIdInvalidateMutationResult = NonNullable<Awaited<ReturnType<typeof postCouponsIdInvalidate>>>
+
+    export type PostCouponsIdInvalidateMutationError = ErrorType<unknown>
+    export type PostCouponsIdInvalidateMutationVariables = {id: string}
+
+    export const usePostCouponsIdInvalidate = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postCouponsIdInvalidate>>, TError,PostCouponsIdInvalidateMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postCouponsIdInvalidate>>,
+        TError,
+        PostCouponsIdInvalidateMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPostCouponsIdInvalidateMutationOptions(options), queryClient);
+    }
+
+export const getGetProductsUrl = (params?: GetProductsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/products?${stringifiedParams}` : `/products`
+}
+
+export const getProducts = async (params?: GetProductsParams, options?: Parameters<typeof apiFetch>[1]): Promise<PagedResultOfProductSummary> => {
+
+  return apiFetch<PagedResultOfProductSummary>(getGetProductsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProductsQueryKey = (params?: GetProductsParams,) => {
+    return [
+    `/products`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetProductsQueryOptions = <TData = Awaited<ReturnType<typeof getProducts>>, TError = ErrorType<unknown>>(params?: GetProductsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProducts>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProductsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProducts>>> = ({ signal }) => getProducts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProducts>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetProductsQueryResult = NonNullable<Awaited<ReturnType<typeof getProducts>>>
+export type GetProductsQueryError = ErrorType<unknown>
+
+
+export function useGetProducts<TData = Awaited<ReturnType<typeof getProducts>>, TError = ErrorType<unknown>>(
+ params: undefined |  GetProductsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProducts>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getProducts>>,
+          TError,
+          Awaited<ReturnType<typeof getProducts>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetProducts<TData = Awaited<ReturnType<typeof getProducts>>, TError = ErrorType<unknown>>(
+ params?: GetProductsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProducts>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getProducts>>,
+          TError,
+          Awaited<ReturnType<typeof getProducts>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetProducts<TData = Awaited<ReturnType<typeof getProducts>>, TError = ErrorType<unknown>>(
+ params?: GetProductsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProducts>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetProducts<TData = Awaited<ReturnType<typeof getProducts>>, TError = ErrorType<unknown>>(
+ params?: GetProductsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProducts>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetProductsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPostProductsUrl = () => {
+
+
+
+
+  return `/products`
+}
+
+export const postProducts = async (createProductCommand: CreateProductCommand, options?: Parameters<typeof apiFetch>[1]): Promise<CreateProductResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<CreateProductResponse>(getPostProductsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(createProductCommand)
+  }
+);}
+
+
+
+
+
+export const getPostProductsMutationKey = () => ['postProducts'] as const;
+
+export const getPostProductsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProducts>>, TError,PostProductsMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postProducts>>, TError,PostProductsMutationVariables, TContext> => {
+
+const mutationKey = getPostProductsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postProducts>>, PostProductsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  postProducts(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostProductsMutationResult = NonNullable<Awaited<ReturnType<typeof postProducts>>>
+    export type PostProductsMutationBody = BodyType<CreateProductCommand>
+    export type PostProductsMutationError = ErrorType<unknown>
+    export type PostProductsMutationVariables = {data: BodyType<CreateProductCommand>}
+
+    export const usePostProducts = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProducts>>, TError,PostProductsMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postProducts>>,
+        TError,
+        PostProductsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPostProductsMutationOptions(options), queryClient);
+    }
+
+export const getGetProductsIdUrl = (id: string,) => {
+
+
+
+
+  return `/products/${id}`
+}
+
+export const getProductsId = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<ProductDetail> => {
+
+  return apiFetch<ProductDetail>(getGetProductsIdUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProductsIdQueryKey = (id: string,) => {
+    return [
+    `/products/${id}`
+    ] as const;
+    }
+
+
+export const getGetProductsIdQueryOptions = <TData = Awaited<ReturnType<typeof getProductsId>>, TError = ErrorType<void>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProductsId>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProductsIdQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProductsId>>> = ({ signal }) => getProductsId(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProductsId>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetProductsIdQueryResult = NonNullable<Awaited<ReturnType<typeof getProductsId>>>
+export type GetProductsIdQueryError = ErrorType<void>
+
+
+export function useGetProductsId<TData = Awaited<ReturnType<typeof getProductsId>>, TError = ErrorType<void>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProductsId>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getProductsId>>,
+          TError,
+          Awaited<ReturnType<typeof getProductsId>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetProductsId<TData = Awaited<ReturnType<typeof getProductsId>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProductsId>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getProductsId>>,
+          TError,
+          Awaited<ReturnType<typeof getProductsId>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetProductsId<TData = Awaited<ReturnType<typeof getProductsId>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProductsId>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetProductsId<TData = Awaited<ReturnType<typeof getProductsId>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProductsId>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetProductsIdQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPutProductsIdUrl = (id: string,) => {
+
+
+
+
+  return `/products/${id}`
+}
+
+export const putProductsId = async (id: string,
+    updateProductRequest: UpdateProductRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<void>(getPutProductsIdUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateProductRequest)
+  }
+);}
+
+
+
+
+
+export const getPutProductsIdMutationKey = () => ['putProductsId'] as const;
+
+export const getPutProductsIdMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putProductsId>>, TError,PutProductsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof putProductsId>>, TError,PutProductsIdMutationVariables, TContext> => {
+
+const mutationKey = getPutProductsIdMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putProductsId>>, PutProductsIdMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  putProductsId(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutProductsIdMutationResult = NonNullable<Awaited<ReturnType<typeof putProductsId>>>
+    export type PutProductsIdMutationBody = BodyType<UpdateProductRequest>
+    export type PutProductsIdMutationError = ErrorType<unknown>
+    export type PutProductsIdMutationVariables = {id: string;data: BodyType<UpdateProductRequest>}
+
+    export const usePutProductsId = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putProductsId>>, TError,PutProductsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putProductsId>>,
+        TError,
+        PutProductsIdMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPutProductsIdMutationOptions(options), queryClient);
+    }
+
+export const getPutProductsIdPriceUrl = (id: string,) => {
+
+
+
+
+  return `/products/${id}/price`
+}
+
+export const putProductsIdPrice = async (id: string,
+    changeProductPriceRequest: ChangeProductPriceRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<void>(getPutProductsIdPriceUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(changeProductPriceRequest)
+  }
+);}
+
+
+
+
+
+export const getPutProductsIdPriceMutationKey = () => ['putProductsIdPrice'] as const;
+
+export const getPutProductsIdPriceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putProductsIdPrice>>, TError,PutProductsIdPriceMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof putProductsIdPrice>>, TError,PutProductsIdPriceMutationVariables, TContext> => {
+
+const mutationKey = getPutProductsIdPriceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putProductsIdPrice>>, PutProductsIdPriceMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  putProductsIdPrice(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutProductsIdPriceMutationResult = NonNullable<Awaited<ReturnType<typeof putProductsIdPrice>>>
+    export type PutProductsIdPriceMutationBody = BodyType<ChangeProductPriceRequest>
+    export type PutProductsIdPriceMutationError = ErrorType<unknown>
+    export type PutProductsIdPriceMutationVariables = {id: string;data: BodyType<ChangeProductPriceRequest>}
+
+    export const usePutProductsIdPrice = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putProductsIdPrice>>, TError,PutProductsIdPriceMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putProductsIdPrice>>,
+        TError,
+        PutProductsIdPriceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPutProductsIdPriceMutationOptions(options), queryClient);
+    }
+
+export const getPostProductsIdDeactivateUrl = (id: string,) => {
+
+
+
+
+  return `/products/${id}/deactivate`
+}
+
+export const postProductsIdDeactivate = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+  return apiFetch<void>(getPostProductsIdDeactivateUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPostProductsIdDeactivateMutationKey = () => ['postProductsIdDeactivate'] as const;
+
+export const getPostProductsIdDeactivateMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdDeactivate>>, TError,PostProductsIdDeactivateMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postProductsIdDeactivate>>, TError,PostProductsIdDeactivateMutationVariables, TContext> => {
+
+const mutationKey = getPostProductsIdDeactivateMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postProductsIdDeactivate>>, PostProductsIdDeactivateMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  postProductsIdDeactivate(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostProductsIdDeactivateMutationResult = NonNullable<Awaited<ReturnType<typeof postProductsIdDeactivate>>>
+
+    export type PostProductsIdDeactivateMutationError = ErrorType<unknown>
+    export type PostProductsIdDeactivateMutationVariables = {id: string}
+
+    export const usePostProductsIdDeactivate = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdDeactivate>>, TError,PostProductsIdDeactivateMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postProductsIdDeactivate>>,
+        TError,
+        PostProductsIdDeactivateMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPostProductsIdDeactivateMutationOptions(options), queryClient);
+    }
+
+export const getPostProductsIdActivateUrl = (id: string,) => {
+
+
+
+
+  return `/products/${id}/activate`
+}
+
+export const postProductsIdActivate = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+  return apiFetch<void>(getPostProductsIdActivateUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPostProductsIdActivateMutationKey = () => ['postProductsIdActivate'] as const;
+
+export const getPostProductsIdActivateMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdActivate>>, TError,PostProductsIdActivateMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postProductsIdActivate>>, TError,PostProductsIdActivateMutationVariables, TContext> => {
+
+const mutationKey = getPostProductsIdActivateMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postProductsIdActivate>>, PostProductsIdActivateMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  postProductsIdActivate(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostProductsIdActivateMutationResult = NonNullable<Awaited<ReturnType<typeof postProductsIdActivate>>>
+
+    export type PostProductsIdActivateMutationError = ErrorType<unknown>
+    export type PostProductsIdActivateMutationVariables = {id: string}
+
+    export const usePostProductsIdActivate = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdActivate>>, TError,PostProductsIdActivateMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postProductsIdActivate>>,
+        TError,
+        PostProductsIdActivateMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPostProductsIdActivateMutationOptions(options), queryClient);
+    }
+
+export const getPostProductsIdDiscontinueUrl = (id: string,) => {
+
+
+
+
+  return `/products/${id}/discontinue`
+}
+
+export const postProductsIdDiscontinue = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+  return apiFetch<void>(getPostProductsIdDiscontinueUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPostProductsIdDiscontinueMutationKey = () => ['postProductsIdDiscontinue'] as const;
+
+export const getPostProductsIdDiscontinueMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdDiscontinue>>, TError,PostProductsIdDiscontinueMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postProductsIdDiscontinue>>, TError,PostProductsIdDiscontinueMutationVariables, TContext> => {
+
+const mutationKey = getPostProductsIdDiscontinueMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postProductsIdDiscontinue>>, PostProductsIdDiscontinueMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  postProductsIdDiscontinue(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostProductsIdDiscontinueMutationResult = NonNullable<Awaited<ReturnType<typeof postProductsIdDiscontinue>>>
+
+    export type PostProductsIdDiscontinueMutationError = ErrorType<unknown>
+    export type PostProductsIdDiscontinueMutationVariables = {id: string}
+
+    export const usePostProductsIdDiscontinue = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postProductsIdDiscontinue>>, TError,PostProductsIdDiscontinueMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postProductsIdDiscontinue>>,
+        TError,
+        PostProductsIdDiscontinueMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPostProductsIdDiscontinueMutationOptions(options), queryClient);
     }
 

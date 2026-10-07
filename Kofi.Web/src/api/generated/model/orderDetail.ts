@@ -17,6 +17,15 @@ export interface OrderDetail {
   createdAt: string;
   /** @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?$ */
   itemsTotal: number | string;
+  /** @nullable */
+  couponCode?: string | null;
+  /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+  discountPercent?: number | string | null;
+  /** @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?$ */
+  discount: number | string;
   /** @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?$ */
   shipping: number | string;
   /** @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?$ */

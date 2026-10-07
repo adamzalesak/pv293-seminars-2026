@@ -9,16 +9,16 @@ public class OrderEmailService(IEmailTransport transport, IPricingService pricin
     public async Task SendOrderConfirmation(Order order)
     {
         var itemsTotal = pricing.CalculateItemsTotal(order.Items);
+        var discount = pricing.CalculateDiscount(itemsTotal, order.Coupon?.DiscountPercent);
         var shipping = pricing.CalculateShipping(itemsTotal);
-
-        var total = itemsTotal + shipping;
+        var total = pricing.CalculateTotal(itemsTotal, order.Coupon?.DiscountPercent);
 
         var body = $"""
                     Hello {order.CustomerName},
 
                     thank you for your order {order.Id}.
 
-                    Items:     {itemsTotal:N2} EUR
+                    Items:     {itemsTotal:N2} EUR{(discount > 0 ? $"\nDiscount: -{discount:N2} EUR ({order.Coupon!.Code})" : "")}
                     Shipping:  {shipping:N2} EUR
                     Total:     {total:N2} EUR
 

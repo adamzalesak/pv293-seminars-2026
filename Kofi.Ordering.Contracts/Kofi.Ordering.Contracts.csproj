@@ -6,5 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-  <ItemGroup/>
+  <ItemGroup>
+    <ProjectReference Include="../Kofi.Contracts/Kofi.Contracts.csproj" />
+  </ItemGroup>
 </Project>
