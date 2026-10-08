@@ -1,6 +1,5 @@
 using Kofi.Common.Abstractions;
 using Kofi.Common.Services;
-using Kofi.Marketing.Contracts;
 using Kofi.Ordering.Contracts;
 using Kofi.Subscriptions.Application.Repositories;
 using Kofi.Subscriptions.Application.Services;
@@ -12,8 +11,7 @@ public class ActivateSubscriptionHandler(
     ISubscriptionRepository subscriptions,
     IOrdering ordering,
     IPaymentGatewayClient payments,
-    ISubscriptionOrderService orders,
-    IMarketing marketing) : ICommandHandler<ActivateSubscriptionCommand, ActivateSubscriptionResponse>
+    ISubscriptionOrderService orders) : ICommandHandler<ActivateSubscriptionCommand, ActivateSubscriptionResponse>
 {
     public async Task<ActivateSubscriptionResponse> Handle(ActivateSubscriptionCommand command, CancellationToken ct)
     {
@@ -52,7 +50,6 @@ public class ActivateSubscriptionHandler(
         }
 
         subscription.Activate(now);
-        await marketing.IssueReferralCoupon(subscription.CustomerId, ct);
 
         if (subscription.Deliveries.FirstOrDefault(d => d.Status == DeliveryStatus.Scheduled && d.ScheduledFor <= now) is { } due)
         {

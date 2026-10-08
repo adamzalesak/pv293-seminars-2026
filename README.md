@@ -25,6 +25,12 @@ them; activating a subscription gives the customer a referral code to pass on
 The discount applies to the items, not to shipping. Each customer uses a
 coupon once, and the owner of a referral code cannot use it.
 
+Modules announce what happened through integration events in their
+Contracts, delivered in-process by MediatR inside the command transaction.
+Marketing issues the referral code on `SubscriptionActivatedIntegrationEvent`
+and records a coupon use on `OrderPaidIntegrationEvent`. Catalog keeps its own
+copy of running subscriptions per product and shows `ActiveSubscriptionCount`.
+
 New catalog products start Draft. `/activate` makes them Active,
 `/discontinue` allows sell-through and existing deliveries but no new
 subscriptions, and `/deactivate` makes them Inactive. ProductInfo exposes

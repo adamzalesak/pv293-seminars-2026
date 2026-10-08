@@ -22,9 +22,18 @@ internal sealed class ModuleInitializer(CatalogDbContext db) : IModuleInitialize
         }
     }
 
-    public Task Seed(CancellationToken ct)
+    public async Task Seed(CancellationToken ct)
     {
         DemoData.Seed(db);
-        return Task.CompletedTask;
+
+        // The copy starts from the subscriptions that already run. This one-off
+        // load reads the Subscriptions schema directly; from then on only the
+        // published facts keep the copy current.
+        await db.Database.ExecuteSqlRawAsync("""
+            INSERT INTO catalog."ProductSubscriptions" ("SubscriptionId", "ProductId", "IsActive")
+            SELECT "Id", "ProductId", TRUE FROM subscriptions."Subscriptions"
+            WHERE "Status" IN ('Active', 'Paused')
+            AND NOT EXISTS (SELECT 1 FROM catalog."ProductSubscriptions")
+            """, ct);
     }
 }

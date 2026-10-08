@@ -7,7 +7,9 @@
 // module.
 //
 // Two views of level 3: "modules" shows how the modules work together,
-// "technical" shows the projects and what they reference.
+// "technical" shows the project structure and shared references without
+// cross-module calls or event subscriptions. Event arrows point from the
+// consuming project to the publisher's Contracts project.
 //
 // Preview:  npx likec4 start
 // Export:   npx likec4 export png -o docs/architecture/
@@ -64,6 +66,11 @@ model {
         technology 'C# class library'
         description 'Technical abstractions, no business owner'
       }
+      kofiContracts = component 'Kofi.Contracts' {
+        technology 'MediatR.Contracts'
+        description 'IIntegrationEvent marker for every Contracts project'
+      }
+      common -> kofiContracts 'references'
 
       catalog = module 'Catalog' {
         description 'Products, offer and prices'
@@ -79,6 +86,7 @@ model {
       }
       host -> catalog.impl 'composes'
       catalog.impl -> common 'references'
+      catalog.contracts -> kofiContracts 'references'
 
       warehouse = module 'Warehouse' {
         description 'Available stock'
@@ -94,6 +102,7 @@ model {
       }
       host -> warehouse.impl 'composes'
       warehouse.impl -> common 'references'
+      warehouse.contracts -> kofiContracts 'references'
 
       ordering = module 'Ordering' {
         description 'Customers, orders and payments'
@@ -109,6 +118,7 @@ model {
       }
       host -> ordering.impl 'composes'
       ordering.impl -> common 'references'
+      ordering.contracts -> kofiContracts 'references'
 
       subscriptions = module 'Subscriptions' {
         description 'Plans and deliveries'
@@ -124,6 +134,7 @@ model {
       }
       host -> subscriptions.impl 'composes'
       subscriptions.impl -> common 'references'
+      subscriptions.contracts -> kofiContracts 'references'
 
       marketing = module 'Marketing' {
         description 'Coupons and referral codes'
@@ -139,14 +150,17 @@ model {
       }
       host -> marketing.impl 'composes'
       marketing.impl -> common 'references'
+      marketing.contracts -> kofiContracts 'references'
 
       subscriptions.impl -[call]-> ordering.contracts 'requests orders and customers'
       subscriptions.impl -[call]-> catalog.contracts 'asks about products'
-      ordering.impl -[call]-> catalog.contracts 'asks sale eligibility'
+      ordering.impl -[call]-> catalog.contracts 'gets product details and sale eligibility'
       ordering.impl -[call]-> warehouse.contracts 'reserves stock'
       catalog.impl -[call]-> warehouse.contracts 'reads stock levels'
-      subscriptions.impl -[call]-> marketing.contracts 'issues a referral coupon'
-      ordering.impl -[call]-> marketing.contracts 'validates and redeems coupons'
+      ordering.impl -[call]-> marketing.contracts 'validates coupons'
+      marketing.impl -[event]-> subscriptions.contracts 'handles SubscriptionActivated; issues a referral code'
+      catalog.impl -[event]-> subscriptions.contracts 'handles subscription events; tracks active subscriptions for popular sorting'
+      marketing.impl -[event]-> ordering.contracts 'handles OrderPaid; records the coupon use'
     }
 
     web = container 'Kofi.Web' {
@@ -166,7 +180,7 @@ model {
     }
 
     web -> api 'calls' 'JSON over HTTPS'
-    catalog.impl -> db 'owns the catalog schema' 'SQL (EF Core)'
+    catalog.impl -> db 'owns the catalog schema; reads subscriptions schema once at startup' 'SQL (EF Core)'
     warehouse.impl -> db 'owns the warehouse schema' 'SQL (EF Core)'
     ordering.impl -> db 'owns the ordering schema' 'SQL (EF Core)'
     subscriptions.impl -> db 'owns the subscriptions schema' 'SQL (EF Core)'
@@ -206,8 +220,8 @@ views {
   }
 
   view technical of api {
-    title 'KoFI — projects and references (C4 L3, technical)'
-    include host, common, catalog.impl, catalog.contracts, warehouse.impl, warehouse.contracts, ordering.impl, ordering.contracts, subscriptions.impl, subscriptions.contracts, marketing.impl, marketing.contracts
+    title 'KoFI — project structure and shared references (C4 L3, technical)'
+    include host, common, kofiContracts, catalog.impl, catalog.contracts, warehouse.impl, warehouse.contracts, ordering.impl, ordering.contracts, subscriptions.impl, subscriptions.contracts, marketing.impl, marketing.contracts
     exclude * -[call]-> *
     exclude * -[event]-> *
     autoLayout TopBottom

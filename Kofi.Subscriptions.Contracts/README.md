@@ -1,3 +1,3 @@
 # Subscriptions contracts
 
-No other module currently calls Subscriptions. This assembly will contain only the public DTOs and operations required by its consumers; it does not expose the domain.
+Catalog and Marketing react to the integration events published here. This assembly contains only what its consumers need; it does not expose the domain.

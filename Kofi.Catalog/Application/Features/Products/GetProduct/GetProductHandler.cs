@@ -23,6 +23,7 @@ public class GetProductHandler(ICatalogDbContext db, IWarehouse stock) : IQueryH
                 Status = p.Status.ToString(),
                 CanBeSold = p.Status == ProductStatus.Active || p.Status == ProductStatus.Discontinued,
                 CanBeSubscribed = p.Status == ProductStatus.Active,
+                ActiveSubscriptionCount = db.ProductSubscriptions.Count(s => s.ProductId == p.Id && s.IsActive),
                 RoastedOn = p.RoastedOn,
                 Origin = p.Origin,
                 ImageUrl = p.ImageUrl

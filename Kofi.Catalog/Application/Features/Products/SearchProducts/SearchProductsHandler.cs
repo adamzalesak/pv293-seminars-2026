@@ -27,6 +27,7 @@ public class SearchProductsHandler(ICatalogDbContext db, IWarehouse stock) : IQu
         {
             "price" => q.OrderBy(p => p.Price.Amount),
             "price_desc" => q.OrderByDescending(p => p.Price.Amount),
+            "popular" => q.OrderByDescending(p => db.ProductSubscriptions.Count(s => s.ProductId == p.Id && s.IsActive)).ThenBy(p => p.Name),
             _ => q.OrderBy(p => p.Name)
         };
         var count = await q.CountAsync(ct);
@@ -42,6 +43,7 @@ public class SearchProductsHandler(ICatalogDbContext db, IWarehouse stock) : IQu
                 Status = p.Status.ToString(),
                 CanBeSold = p.Status == ProductStatus.Active || p.Status == ProductStatus.Discontinued,
                 CanBeSubscribed = p.Status == ProductStatus.Active,
+                ActiveSubscriptionCount = db.ProductSubscriptions.Count(s => s.ProductId == p.Id && s.IsActive),
                 RoastedOn = p.RoastedOn,
                 Origin = p.Origin,
                 ImageUrl = p.ImageUrl
