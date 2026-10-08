@@ -60,7 +60,7 @@ public class Subscription : AggregateRoot
         ActivatedAt = now;
         Schedule(NextDeliveryAt!.Value < now.Date ? now.Date : NextDeliveryAt.Value);
 
-        Raise(new SubscriptionActivated(Id));
+        Raise(new SubscriptionActivated(Id, CustomerId, Plan.ProductId, now));
     }
 
     public void Pause(DateTime now)
@@ -107,6 +107,8 @@ public class Subscription : AggregateRoot
         CancelledAt = now;
         NextDeliveryAt = null;
 
+        Raise(new SubscriptionCancelled(Id));
+
         // Only what was merely planned. A delivery an order was already
         // placed for runs its own course and can still arrive; stopping that
         // parcel means cancelling the order, not the subscription.
@@ -122,6 +124,11 @@ public class Subscription : AggregateRoot
         var plan = new Plan(product.Id, product.Name, quantity, intervalDays, product.Price);
         RejectUnless(Status is SubscriptionStatus.Active or SubscriptionStatus.Paused,
             "Only a running subscription can change its plan.");
+
+        if (plan.ProductId != Plan.ProductId)
+        {
+            Raise(new SubscriptionProductChanged(Id, plan.ProductId));
+        }
 
         Plan = plan;
 

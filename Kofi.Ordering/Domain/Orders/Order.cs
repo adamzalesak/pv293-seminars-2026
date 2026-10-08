@@ -98,6 +98,8 @@ public class Order : AggregateRoot
 
         PaymentId = paymentId;
         Status = OrderStatus.Paid;
+
+        Raise(new OrderPaid(Id, CustomerId, Coupon?.Code));
     }
 
     public void Ship()

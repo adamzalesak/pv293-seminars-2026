@@ -17,7 +17,7 @@ const PAGE_SIZE = 9
 
 const searchSchema = z.object({
   q: z.string().optional().catch(undefined),
-  sort: z.enum(['name', 'price', 'price_desc']).optional().catch(undefined),
+  sort: z.enum(['name', 'price', 'price_desc', 'popular']).optional().catch(undefined),
   page: z.number().int().min(1).optional().catch(undefined),
 })
 
@@ -129,6 +129,7 @@ function Catalog() {
               <SelectItem value="name">Name</SelectItem>
               <SelectItem value="price">Price, low to high</SelectItem>
               <SelectItem value="price_desc">Price, high to low</SelectItem>
+              <SelectItem value="popular">Most subscribed</SelectItem>
             </SelectContent>
           </Select>
           {products.data && (

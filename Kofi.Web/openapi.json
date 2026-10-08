@@ -2307,7 +2307,8 @@
                     "isActive",
                     "status",
                     "canBeSold",
-                    "canBeSubscribed"
+                    "canBeSubscribed",
+                    "activeSubscriptionCount"
                 ],
                 "type": "object",
                 "properties": {
@@ -2349,6 +2350,14 @@
                     "canBeSubscribed": {
                         "type": "boolean"
                     },
+                    "activeSubscriptionCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
                     "roastedOn": {
                         "type": [
                             "null",
@@ -2379,7 +2388,8 @@
                     "isActive",
                     "status",
                     "canBeSold",
-                    "canBeSubscribed"
+                    "canBeSubscribed",
+                    "activeSubscriptionCount"
                 ],
                 "type": "object",
                 "properties": {
@@ -2417,6 +2427,14 @@
                     },
                     "canBeSubscribed": {
                         "type": "boolean"
+                    },
+                    "activeSubscriptionCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
                     },
                     "roastedOn": {
                         "type": [

@@ -16,6 +16,8 @@ export interface ProductSummary {
   status: string;
   canBeSold: boolean;
   canBeSubscribed: boolean;
+  /** @pattern ^-?(?:0|[1-9]\d*)$ */
+  activeSubscriptionCount: number | string;
   /** @nullable */
   roastedOn?: string | null;
   /** @nullable */

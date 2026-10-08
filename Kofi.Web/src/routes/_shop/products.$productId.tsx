@@ -96,6 +96,12 @@ function ProductDetail() {
                 <dd>{formatDate(p.roastedOn)}</dd>
               </>
             )}
+            {Number(p.activeSubscriptionCount) > 0 && (
+              <>
+                <dt className="text-muted-foreground">Subscribed by</dt>
+                <dd className="tabular">{p.activeSubscriptionCount} {Number(p.activeSubscriptionCount) === 1 ? 'person' : 'people'}</dd>
+              </>
+            )}
             <dt className="text-muted-foreground">In stock</dt>
             <dd className="tabular">{p.isActive ? stock : 'No longer sold'}</dd>
           </dl>
