@@ -1,0 +1,673 @@
+diff --git a/Kofi.Catalog/Application/EventHandlers/EndSubscriptionOnSubscriptionCancelled.cs b/Kofi.Catalog/Application/EventHandlers/EndSubscriptionOnSubscriptionCancelled.cs
+index 0dc0199..99528d8 100644
+--- a/Kofi.Catalog/Application/EventHandlers/EndSubscriptionOnSubscriptionCancelled.cs
++++ b/Kofi.Catalog/Application/EventHandlers/EndSubscriptionOnSubscriptionCancelled.cs
+@@ -1,19 +1,12 @@
+ using Kofi.Catalog.Application.Persistence;
+ using Kofi.Common.Abstractions;
+ using Kofi.Subscriptions.Contracts;
+-using Microsoft.EntityFrameworkCore;
+ 
+ namespace Kofi.Catalog.Application.EventHandlers;
+ 
+ public class EndSubscriptionOnSubscriptionCancelled(ICatalogDbContext db)
+     : IIntegrationEventHandler<SubscriptionCancelledIntegrationEvent>
+ {
+-    // A subscription cancelled before it was ever activated is not in the copy.
+-    public async Task Handle(SubscriptionCancelledIntegrationEvent cancelled, CancellationToken ct)
+-    {
+-        if (await db.ProductSubscriptions.FirstOrDefaultAsync(s => s.SubscriptionId == cancelled.SubscriptionId, ct) is { } copy)
+-        {
+-            copy.IsActive = false;
+-        }
+-    }
++    public Task Handle(SubscriptionCancelledIntegrationEvent cancelled, CancellationToken ct) =>
++        ProductSubscriptionCopy.Apply(db, cancelled.SubscriptionId, cancelled.Current, ct);
+ }
+diff --git a/Kofi.Catalog/Application/EventHandlers/MoveSubscriptionOnSubscriptionProductChanged.cs b/Kofi.Catalog/Application/EventHandlers/MoveSubscriptionOnSubscriptionProductChanged.cs
+index 170d6d7..0c98509 100644
+--- a/Kofi.Catalog/Application/EventHandlers/MoveSubscriptionOnSubscriptionProductChanged.cs
++++ b/Kofi.Catalog/Application/EventHandlers/MoveSubscriptionOnSubscriptionProductChanged.cs
+@@ -1,18 +1,12 @@
+ using Kofi.Catalog.Application.Persistence;
+ using Kofi.Common.Abstractions;
+ using Kofi.Subscriptions.Contracts;
+-using Microsoft.EntityFrameworkCore;
+ 
+ namespace Kofi.Catalog.Application.EventHandlers;
+ 
+ public class MoveSubscriptionOnSubscriptionProductChanged(ICatalogDbContext db)
+     : IIntegrationEventHandler<SubscriptionProductChangedIntegrationEvent>
+ {
+-    public async Task Handle(SubscriptionProductChangedIntegrationEvent changed, CancellationToken ct)
+-    {
+-        if (await db.ProductSubscriptions.FirstOrDefaultAsync(s => s.SubscriptionId == changed.SubscriptionId, ct) is { } copy)
+-        {
+-            copy.ProductId = changed.ProductId;
+-        }
+-    }
++    public Task Handle(SubscriptionProductChangedIntegrationEvent changed, CancellationToken ct) =>
++        ProductSubscriptionCopy.Apply(db, changed.SubscriptionId, changed.Current, ct);
+ }
+diff --git a/Kofi.Catalog/Application/EventHandlers/ProductSubscriptionCopy.cs b/Kofi.Catalog/Application/EventHandlers/ProductSubscriptionCopy.cs
+new file mode 100644
+index 0000000..ab4f1e6
+--- /dev/null
++++ b/Kofi.Catalog/Application/EventHandlers/ProductSubscriptionCopy.cs
+@@ -0,0 +1,32 @@
++using Kofi.Catalog.Application.Persistence;
++using Kofi.Catalog.Application.ReadModels;
++using Kofi.Subscriptions.Contracts;
++using Microsoft.EntityFrameworkCore;
++
++namespace Kofi.Catalog.Application.EventHandlers;
++
++// Every subscription event carries the subscription's whole state and its
++// version, so any of them can bring the copy up to date, and one that arrives
++// late, behind a newer one, is ignored. Each handler runs on its own queue and
++// nothing keeps them in order: Wolverine's partitioned processing would, but
++// in this version it loops with more than one handler per event.
++internal static class ProductSubscriptionCopy
++{
++    public static async Task Apply(ICatalogDbContext db, Guid subscriptionId, SubscriptionState state, CancellationToken ct)
++    {
++        var copy = await db.ProductSubscriptions.FirstOrDefaultAsync(s => s.SubscriptionId == subscriptionId, ct);
++        if (copy is null)
++        {
++            copy = new ProductSubscription { SubscriptionId = subscriptionId };
++            db.ProductSubscriptions.Add(copy);
++        }
++        else if (copy.Version >= state.Version)
++        {
++            return;
++        }
++
++        copy.ProductId = state.ProductId;
++        copy.IsActive = state.IsRunning;
++        copy.Version = state.Version;
++    }
++}
+diff --git a/Kofi.Catalog/Application/EventHandlers/RecordSubscriptionOnSubscriptionActivated.cs b/Kofi.Catalog/Application/EventHandlers/RecordSubscriptionOnSubscriptionActivated.cs
+index e9c654f..bd3e895 100644
+--- a/Kofi.Catalog/Application/EventHandlers/RecordSubscriptionOnSubscriptionActivated.cs
++++ b/Kofi.Catalog/Application/EventHandlers/RecordSubscriptionOnSubscriptionActivated.cs
+@@ -1,9 +1,7 @@
+ using Kofi.Catalog.Application.Persistence;
+-using Kofi.Catalog.Application.ReadModels;
+ using Kofi.Common.Abstractions;
+ using Kofi.Common.Demo;
+ using Kofi.Subscriptions.Contracts;
+-using Microsoft.EntityFrameworkCore;
+ using Microsoft.Extensions.Options;
+ 
+ namespace Kofi.Catalog.Application.EventHandlers;
+@@ -18,14 +16,6 @@ public class RecordSubscriptionOnSubscriptionActivated(ICatalogDbContext db, IOp
+             throw new InvalidOperationException("The popularity count is unavailable");
+         }
+ 
+-        var copy = await db.ProductSubscriptions.FirstOrDefaultAsync(s => s.SubscriptionId == activated.SubscriptionId, ct);
+-        if (copy is null)
+-        {
+-            copy = new ProductSubscription { SubscriptionId = activated.SubscriptionId };
+-            db.ProductSubscriptions.Add(copy);
+-        }
+-
+-        copy.ProductId = activated.ProductId;
+-        copy.IsActive = true;
++        await ProductSubscriptionCopy.Apply(db, activated.SubscriptionId, activated.Current, ct);
+     }
+ }
+diff --git a/Kofi.Catalog/Application/ReadModels/ProductSubscription.cs b/Kofi.Catalog/Application/ReadModels/ProductSubscription.cs
+index 02f46ea..48785df 100644
+--- a/Kofi.Catalog/Application/ReadModels/ProductSubscription.cs
++++ b/Kofi.Catalog/Application/ReadModels/ProductSubscription.cs
+@@ -8,4 +8,7 @@ public class ProductSubscription
+     public Guid SubscriptionId { get; set; }
+     public Guid ProductId { get; set; }
+     public bool IsActive { get; set; }
++
++    // The version of the subscription this row was copied from.
++    public int Version { get; set; }
+ }
+diff --git a/Kofi.Catalog/Infrastructure/Persistence/ModuleInitializer.cs b/Kofi.Catalog/Infrastructure/Persistence/ModuleInitializer.cs
+index 3e1abe6..658dbf5 100644
+--- a/Kofi.Catalog/Infrastructure/Persistence/ModuleInitializer.cs
++++ b/Kofi.Catalog/Infrastructure/Persistence/ModuleInitializer.cs
+@@ -30,8 +30,8 @@ internal sealed class ModuleInitializer(CatalogDbContext db) : IModuleInitialize
+         // load reads the Subscriptions schema directly; from then on only the
+         // published facts keep the copy current.
+         await db.Database.ExecuteSqlRawAsync("""
+-            INSERT INTO catalog."ProductSubscriptions" ("SubscriptionId", "ProductId", "IsActive")
+-            SELECT "Id", "ProductId", TRUE FROM subscriptions."Subscriptions"
++            INSERT INTO catalog."ProductSubscriptions" ("SubscriptionId", "ProductId", "IsActive", "Version")
++            SELECT "Id", "ProductId", TRUE, "Version" FROM subscriptions."Subscriptions"
+             WHERE "Status" IN ('Active', 'Paused')
+             AND NOT EXISTS (SELECT 1 FROM catalog."ProductSubscriptions")
+             """, ct);
+diff --git a/Kofi.Marketing.Tests/Coupons/CouponRulesTests.cs b/Kofi.Marketing.Tests/Coupons/CouponRulesTests.cs
+index 2da4b74..52133a3 100644
+--- a/Kofi.Marketing.Tests/Coupons/CouponRulesTests.cs
++++ b/Kofi.Marketing.Tests/Coupons/CouponRulesTests.cs
+@@ -13,15 +13,29 @@ public class CouponRulesTests
+     [Fact]
+     public void Referral_code_is_for_friends_once_each()
+     {
+-        var coupon = Coupon.IssueReferral(new CouponCode("ref-abc123"), Owner, Now);
++        var coupon = Coupon.IssueReferral(new CouponCode("ref-abc123"), Owner, Guid.NewGuid(), Now);
+ 
+         Assert.Equal("REF-ABC123", coupon.Code.Value);
+         Assert.Throws<DomainRuleException>(() => coupon.EnsureUsableBy(Owner, Now));
+ 
+-        coupon.Redeem(Friend, Guid.NewGuid(), Now);
+-        Assert.Throws<DomainRuleException>(() => coupon.Redeem(Friend, Guid.NewGuid(), Now));
++        coupon.EnsureUsableBy(Friend, Now);
++        coupon.RecordUse(Friend, Guid.NewGuid(), Now);
++        Assert.Throws<DomainRuleException>(() => coupon.EnsureUsableBy(Friend, Now));
++
++        coupon.RecordUse(Guid.NewGuid(), Guid.NewGuid(), Now);
++        Assert.Equal(2, coupon.Uses.Count);
++    }
++
++    [Fact]
++    public void A_paid_order_records_its_use_once_even_against_the_rules()
++    {
++        var coupon = Coupon.IssueReferral(new CouponCode("REF-ABC123"), Owner, Guid.NewGuid(), Now);
++        var order = Guid.NewGuid();
++
++        coupon.RecordUse(Friend, order, Now);
++        coupon.RecordUse(Friend, order, Now);
++        coupon.RecordUse(Friend, Guid.NewGuid(), Now);
+ 
+-        coupon.Redeem(Guid.NewGuid(), Guid.NewGuid(), Now);
+         Assert.Equal(2, coupon.Uses.Count);
+     }
+ 
+diff --git a/Kofi.Marketing/Application/EventHandlers/IssueReferralCouponOnSubscriptionActivated.cs b/Kofi.Marketing/Application/EventHandlers/IssueReferralCouponOnSubscriptionActivated.cs
+index 24d2c71..e4b6493 100644
+--- a/Kofi.Marketing/Application/EventHandlers/IssueReferralCouponOnSubscriptionActivated.cs
++++ b/Kofi.Marketing/Application/EventHandlers/IssueReferralCouponOnSubscriptionActivated.cs
+@@ -1,4 +1,5 @@
+ using Kofi.Common.Demo;
++using Microsoft.EntityFrameworkCore;
+ using Microsoft.Extensions.Options;
+ using Kofi.Common.Abstractions;
+ using Kofi.Marketing.Application.Persistence;
+@@ -13,6 +14,14 @@ public class IssueReferralCouponOnSubscriptionActivated(IMarketingDbContext db,
+     public async Task Handle(SubscriptionActivatedIntegrationEvent activated, CancellationToken ct)
+     {
+         await Task.Delay(demo.Value.MarketingDelayMs, ct);
+-        db.Coupons.Add(Coupon.IssueReferral(ReferralCode.Generate(), activated.CustomerId, activated.ActivatedAt));
++
++        // The same event may arrive again: one referral code per subscription.
++        if (await db.Coupons.AnyAsync(c => c.SubscriptionId == activated.SubscriptionId, ct))
++        {
++            return;
++        }
++
++        db.Coupons.Add(Coupon.IssueReferral(ReferralCode.Generate(), activated.CustomerId, activated.SubscriptionId,
++            activated.ActivatedAt));
+     }
+ }
+diff --git a/Kofi.Marketing/Application/EventHandlers/RecordCouponUseOnOrderPaid.cs b/Kofi.Marketing/Application/EventHandlers/RecordCouponUseOnOrderPaid.cs
+index 5930271..7a20cb9 100644
+--- a/Kofi.Marketing/Application/EventHandlers/RecordCouponUseOnOrderPaid.cs
++++ b/Kofi.Marketing/Application/EventHandlers/RecordCouponUseOnOrderPaid.cs
+@@ -16,8 +16,8 @@ public class RecordCouponUseOnOrderPaid(IMarketingDbContext db) : IIntegrationEv
+         }
+ 
+         var code = new CouponCode(paid.CouponCode);
+-        var coupon = await db.Coupons.FirstOrDefaultAsync(c => c.Code.Value == code.Value, ct) ??
+-                     throw new NotFoundException("Coupon not found");
+-        coupon.Redeem(paid.CustomerId, paid.OrderId, DateTime.Now);
++        // The order was paid with this code: record it, never refuse the fact.
++        var coupon = await db.Coupons.FirstOrDefaultAsync(c => c.Code.Value == code.Value, ct);
++        coupon?.RecordUse(paid.CustomerId, paid.OrderId, DateTime.Now);
+     }
+ }
+diff --git a/Kofi.Marketing/Domain/Coupons/Coupon.cs b/Kofi.Marketing/Domain/Coupons/Coupon.cs
+index cbbcc49..de85fc5 100644
+--- a/Kofi.Marketing/Domain/Coupons/Coupon.cs
++++ b/Kofi.Marketing/Domain/Coupons/Coupon.cs
+@@ -17,6 +17,9 @@ public class Coupon : AggregateRoot
+     // Whoever got a referral code passes it on; they do not use it themselves.
+     public Guid? OwnerCustomerId { get; private set; }
+ 
++    // The subscription whose activation earned this referral code.
++    public Guid? SubscriptionId { get; private set; }
++
+     public Discount Discount { get; private set; } = null!;
+     public DateTime IssuedAt { get; private set; }
+     public DateTime ExpiresAt { get; private set; }
+@@ -30,10 +33,13 @@ public class Coupon : AggregateRoot
+         return coupon;
+     }
+ 
+-    public static Coupon IssueReferral(CouponCode code, Guid ownerCustomerId, DateTime now)
++    public static Coupon IssueReferral(CouponCode code, Guid ownerCustomerId, Guid? subscriptionId, DateTime now)
+     {
+         var coupon = new Coupon
+-            { Id = Guid.NewGuid(), Code = code, Reason = CouponReason.Referral, OwnerCustomerId = ownerCustomerId, IssuedAt = now };
++        {
++            Id = Guid.NewGuid(), Code = code, Reason = CouponReason.Referral, OwnerCustomerId = ownerCustomerId,
++            SubscriptionId = subscriptionId, IssuedAt = now,
++        };
+         coupon.SetTerms(ReferralDiscount, now.Add(ReferralValidity), now);
+         return coupon;
+     }
+@@ -68,9 +74,17 @@ public class Coupon : AggregateRoot
+         }
+     }
+ 
+-    public void Redeem(Guid customerId, Guid orderId, DateTime now)
++    // The order is paid; the use is a fact to record, not a decision to make.
++    // The rules were checked when the order took the code (EnsureUsableBy). A
++    // use that breaks them now, e.g. two orders racing for one code, is
++    // recorded anyway: we accept that cost knowingly.
++    public void RecordUse(Guid customerId, Guid orderId, DateTime now)
+     {
+-        EnsureUsableBy(customerId, now);
++        if (_uses.Any(u => u.OrderId == orderId))
++        {
++            return;
++        }
++
+         _uses.Add(CouponUse.Create(customerId, orderId, now));
+     }
+ 
+diff --git a/Kofi.Marketing/Infrastructure/Persistence/Configurations/CouponConfiguration.cs b/Kofi.Marketing/Infrastructure/Persistence/Configurations/CouponConfiguration.cs
+index a380821..d295531 100644
+--- a/Kofi.Marketing/Infrastructure/Persistence/Configurations/CouponConfiguration.cs
++++ b/Kofi.Marketing/Infrastructure/Persistence/Configurations/CouponConfiguration.cs
+@@ -21,6 +21,8 @@ public class CouponConfiguration : IEntityTypeConfiguration<Coupon>
+         coupon.OwnsOne(c => c.Discount, discount => discount.Property(d => d.Percent).HasColumnName("DiscountPercent"));
+         coupon.Navigation(c => c.Discount).IsRequired();
+         coupon.Property(c => c.Reason).HasConversion<string>();
++        // One referral code per subscription, even when the event arrives twice at once.
++        coupon.HasIndex(c => c.SubscriptionId).IsUnique().HasFilter("\"SubscriptionId\" IS NOT NULL");
+         coupon.OwnsMany(c => c.Uses, use =>
+         {
+             use.ToTable("CouponUses", "marketing");
+diff --git a/Kofi.Marketing/Infrastructure/Persistence/DemoData.cs b/Kofi.Marketing/Infrastructure/Persistence/DemoData.cs
+index 6f8c461..6149684 100644
+--- a/Kofi.Marketing/Infrastructure/Persistence/DemoData.cs
++++ b/Kofi.Marketing/Infrastructure/Persistence/DemoData.cs
+@@ -15,7 +15,7 @@ internal static class DemoData
+ 
+         var now = DateTime.Now;
+         db.Coupons.AddRange(
+-            Coupon.IssueReferral(new CouponCode("REF-PETRA7"), Petra, now.AddDays(-20)),
++            Coupon.IssueReferral(new CouponCode("REF-PETRA7"), Petra, null, now.AddDays(-20)),
+             Coupon.Issue(new CouponCode("KOFI10"), new Discount(10), now.AddDays(30),
+                 now.AddDays(-5)));
+         db.SaveChanges();
+diff --git a/Kofi.Ordering/API/Endpoints/PaymentWebhookEndpoints.cs b/Kofi.Ordering/API/Endpoints/PaymentWebhookEndpoints.cs
+index 799ad34..fbaba5e 100644
+--- a/Kofi.Ordering/API/Endpoints/PaymentWebhookEndpoints.cs
++++ b/Kofi.Ordering/API/Endpoints/PaymentWebhookEndpoints.cs
+@@ -1,9 +1,8 @@
+ using System.Text.Json;
+-using Kofi.Common.Abstractions;
+ using Kofi.Common.Services;
+-using Kofi.Ordering.Application.Features.Orders.ConfirmOrderPayment;
+-using MediatR;
++using Kofi.Ordering.Application.Payments;
+ using Microsoft.AspNetCore.Http.HttpResults;
++using Wolverine;
+ 
+ namespace Kofi.Ordering.API.Endpoints;
+ 
+@@ -13,9 +12,11 @@ public static class PaymentWebhookEndpoints
+     {
+         // The provider calls here after every decision about a payment; this,
+         // not the customer's redirect, is where the shop learns the result.
+-        // The provider repeats a delivery until it gets a 2xx answer.
++        // The provider repeats a delivery until it gets a 2xx answer, so the
++        // answer comes only once the result is stored, and a repeat is
++        // answered 2xx as well: refusing it would only make the provider retry.
+         app.MapPost("/payments/webhook", async Task<Results<Ok, UnauthorizedHttpResult>> (
+-                HttpRequest http, IPaymentWebhookVerifier verifier, IMediator mediator) =>
++                HttpRequest http, IPaymentWebhookVerifier verifier, IMessageBus bus) =>
+             {
+                 using var reader = new StreamReader(http.Body);
+                 var body = await reader.ReadToEndAsync();
+@@ -27,18 +28,8 @@ public static class PaymentWebhookEndpoints
+                 var webhook = JsonSerializer.Deserialize<PaymentWebhookRequest>(body, JsonSerializerOptions.Web)!;
+                 if (Guid.TryParse(webhook.Reference, out var orderId))
+                 {
+-                    try
+-                    {
+-                        // Confirming is idempotent: it follows the order's state,
+-                        // so the redirect, the webhook and a repeated webhook
+-                        // agree on one outcome.
+-                        await mediator.Send(new ConfirmOrderPaymentCommand { Id = orderId, PaymentId = webhook.PaymentId });
+-                    }
+-                    catch (NotFoundException)
+-                    {
+-                        // A payment for an order the shop never saved: nothing to
+-                        // confirm.
+-                    }
++                    // Stored in a durable queue before we answer.
++                    await bus.PublishAsync(new PaymentResultReceived(webhook.EventId, webhook.PaymentId, orderId, webhook.Status));
+                 }
+ 
+                 return TypedResults.Ok();
+diff --git a/Kofi.Ordering/Application/Features/Orders/ConfirmOrderPayment/ConfirmOrderPaymentHandler.cs b/Kofi.Ordering/Application/Features/Orders/ConfirmOrderPayment/ConfirmOrderPaymentHandler.cs
+index 3b6467a..3196841 100644
+--- a/Kofi.Ordering/Application/Features/Orders/ConfirmOrderPayment/ConfirmOrderPaymentHandler.cs
++++ b/Kofi.Ordering/Application/Features/Orders/ConfirmOrderPayment/ConfirmOrderPaymentHandler.cs
+@@ -20,19 +20,15 @@ public class ConfirmOrderPaymentHandler(
+         // Never trust the redirect: ask the provider what really happened.
+         var status = await payments.GetStatus(command.PaymentId);
+ 
+-        if (order.Status == OrderStatus.Cancelled)
++        if (order.AcceptPaymentResult(command.PaymentId, status == PaymentStatus.Captured))
+         {
+             // The order was cancelled meanwhile. Money that was taken goes back.
+-            if (status == PaymentStatus.Captured)
+-            {
+-                await payments.CancelOrRefund(command.PaymentId);
+-            }
+-
+-            return new ConfirmOrderPaymentResponse { OrderId = order.Id, Status = PaymentOutcome.Cancelled.ToString() };
++            await payments.CancelOrRefund(command.PaymentId);
+         }
+-        else if (status == PaymentStatus.Captured && order.Status == OrderStatus.New)
++
++        if (order.Status == OrderStatus.Cancelled)
+         {
+-            order.RecordPayment(command.PaymentId);
++            return new ConfirmOrderPaymentResponse { OrderId = order.Id, Status = PaymentOutcome.Cancelled.ToString() };
+         }
+ 
+         // The customer is told the shop's outcome, not the provider's own words.
+diff --git a/Kofi.Ordering/Application/Payments/PaymentResultReceived.cs b/Kofi.Ordering/Application/Payments/PaymentResultReceived.cs
+new file mode 100644
+index 0000000..1a53215
+--- /dev/null
++++ b/Kofi.Ordering/Application/Payments/PaymentResultReceived.cs
+@@ -0,0 +1,11 @@
++using Wolverine.Attributes;
++
++namespace Kofi.Ordering.Application.Payments;
++
++// The provider's webhook, taken in. EventId is the provider's own id for the
++// notification, so a webhook it sends again is recognised as the same one.
++public record PaymentResultReceived(
++    [property: DeduplicationIdentity] Guid EventId,
++    Guid PaymentId,
++    Guid OrderId,
++    string Status);
+diff --git a/Kofi.Ordering/Application/Payments/PaymentResultReceivedHandler.cs b/Kofi.Ordering/Application/Payments/PaymentResultReceivedHandler.cs
+new file mode 100644
+index 0000000..e4f2f3d
+--- /dev/null
++++ b/Kofi.Ordering/Application/Payments/PaymentResultReceivedHandler.cs
+@@ -0,0 +1,29 @@
++using Kofi.Common.Services;
++using Kofi.Ordering.Application.Repositories;
++using Wolverine.Attributes;
++
++namespace Kofi.Ordering.Application.Payments;
++
++// The same webhook delivered twice runs once ([Deduplicated] on EventId); the
++// same result reaching us by webhook and by redirect is caught by the order's
++// own state.
++[Deduplicated]
++public class PaymentResultReceivedHandler(IOrderRepository orders, IPaymentGatewayClient payments)
++{
++    public async Task Handle(PaymentResultReceived result, CancellationToken ct)
++    {
++        var order = await orders.GetById(result.OrderId);
++
++        // A payment for an order the shop never saved, e.g. a declined
++        // subscription charge: nothing to confirm.
++        if (order == null || order.PaymentId != result.PaymentId)
++        {
++            return;
++        }
++
++        if (order.AcceptPaymentResult(result.PaymentId, result.Status == nameof(PaymentStatus.Captured)))
++        {
++            await payments.CancelOrRefund(result.PaymentId);
++        }
++    }
++}
+diff --git a/Kofi.Ordering/Domain/Orders/Order.cs b/Kofi.Ordering/Domain/Orders/Order.cs
+index 352a733..f744719 100644
+--- a/Kofi.Ordering/Domain/Orders/Order.cs
++++ b/Kofi.Ordering/Domain/Orders/Order.cs
+@@ -102,6 +102,24 @@ public class Order : AggregateRoot
+         Raise(new OrderPaid(Id, CustomerId, Coupon?.Code));
+     }
+ 
++    // The provider's word on a payment. Returns true when the money has to go
++    // back: it was taken for an order cancelled in the meantime. Asking twice
++    // with the same answer changes nothing.
++    public bool AcceptPaymentResult(Guid paymentId, bool captured)
++    {
++        if (Status == OrderStatus.Cancelled)
++        {
++            return captured;
++        }
++
++        if (captured && Status == OrderStatus.New)
++        {
++            RecordPayment(paymentId);
++        }
++
++        return false;
++    }
++
+     public void Ship()
+     {
+         if (Status != OrderStatus.Paid)
+diff --git a/Kofi.Subscriptions.Contracts/SubscriptionActivatedIntegrationEvent.cs b/Kofi.Subscriptions.Contracts/SubscriptionActivatedIntegrationEvent.cs
+index 1c6976c..b9b147f 100644
+--- a/Kofi.Subscriptions.Contracts/SubscriptionActivatedIntegrationEvent.cs
++++ b/Kofi.Subscriptions.Contracts/SubscriptionActivatedIntegrationEvent.cs
+@@ -2,5 +2,6 @@ using Kofi.Contracts;
+ 
+ namespace Kofi.Subscriptions.Contracts;
+ 
+-public record SubscriptionActivatedIntegrationEvent(Guid SubscriptionId, Guid CustomerId, Guid ProductId, DateTime ActivatedAt)
++public record SubscriptionActivatedIntegrationEvent(
++    Guid SubscriptionId, Guid CustomerId, Guid ProductId, DateTime ActivatedAt, SubscriptionState Current)
+     : IIntegrationEvent;
+diff --git a/Kofi.Subscriptions.Contracts/SubscriptionCancelledIntegrationEvent.cs b/Kofi.Subscriptions.Contracts/SubscriptionCancelledIntegrationEvent.cs
+index f64e7bd..9db8c9f 100644
+--- a/Kofi.Subscriptions.Contracts/SubscriptionCancelledIntegrationEvent.cs
++++ b/Kofi.Subscriptions.Contracts/SubscriptionCancelledIntegrationEvent.cs
+@@ -2,4 +2,5 @@ using Kofi.Contracts;
+ 
+ namespace Kofi.Subscriptions.Contracts;
+ 
+-public record SubscriptionCancelledIntegrationEvent(Guid SubscriptionId) : IIntegrationEvent;
++public record SubscriptionCancelledIntegrationEvent(Guid SubscriptionId, DateTime CancelledAt, SubscriptionState Current)
++    : IIntegrationEvent;
+diff --git a/Kofi.Subscriptions.Contracts/SubscriptionProductChangedIntegrationEvent.cs b/Kofi.Subscriptions.Contracts/SubscriptionProductChangedIntegrationEvent.cs
+index 3ef9fa7..8cc9e7b 100644
+--- a/Kofi.Subscriptions.Contracts/SubscriptionProductChangedIntegrationEvent.cs
++++ b/Kofi.Subscriptions.Contracts/SubscriptionProductChangedIntegrationEvent.cs
+@@ -2,4 +2,5 @@ using Kofi.Contracts;
+ 
+ namespace Kofi.Subscriptions.Contracts;
+ 
+-public record SubscriptionProductChangedIntegrationEvent(Guid SubscriptionId, Guid ProductId) : IIntegrationEvent;
++public record SubscriptionProductChangedIntegrationEvent(Guid SubscriptionId, Guid ProductId, SubscriptionState Current)
++    : IIntegrationEvent;
+diff --git a/Kofi.Subscriptions.Contracts/SubscriptionState.cs b/Kofi.Subscriptions.Contracts/SubscriptionState.cs
+new file mode 100644
+index 0000000..3e4900d
+--- /dev/null
++++ b/Kofi.Subscriptions.Contracts/SubscriptionState.cs
+@@ -0,0 +1,6 @@
++namespace Kofi.Subscriptions.Contracts;
++
++// The subscription as it stood when the event left, with its version. Events
++// can arrive out of order; a subscriber that keeps a copy keeps the newest
++// version and ignores an older one, whichever event carried it.
++public record SubscriptionState(Guid ProductId, bool IsRunning, int Version);
+diff --git a/Kofi.Subscriptions/Application/EventHandlers/PublishedState.cs b/Kofi.Subscriptions/Application/EventHandlers/PublishedState.cs
+new file mode 100644
+index 0000000..7d9ff53
+--- /dev/null
++++ b/Kofi.Subscriptions/Application/EventHandlers/PublishedState.cs
+@@ -0,0 +1,18 @@
++using Kofi.Subscriptions.Application.Persistence;
++using Kofi.Subscriptions.Contracts;
++using Kofi.Subscriptions.Domain.Subscriptions;
++using Microsoft.EntityFrameworkCore;
++
++namespace Kofi.Subscriptions.Application.EventHandlers;
++
++// The domain event carries only its own fact; what other modules need to keep
++// a copy current is added here, when the fact leaves the module.
++internal static class PublishedState
++{
++    public static async Task<SubscriptionState> Of(ISubscriptionsDbContext db, Guid subscriptionId, CancellationToken ct)
++    {
++        var subscription = await db.Subscriptions.AsNoTracking().SingleAsync(s => s.Id == subscriptionId, ct);
++        return new SubscriptionState(subscription.Plan.ProductId,
++            subscription.Status is SubscriptionStatus.Active or SubscriptionStatus.Paused, subscription.Version);
++    }
++}
+diff --git a/Kofi.Subscriptions/Application/EventHandlers/SubscriptionActivatedPublisher.cs b/Kofi.Subscriptions/Application/EventHandlers/SubscriptionActivatedPublisher.cs
+index 8d7459e..1d2a4f3 100644
+--- a/Kofi.Subscriptions/Application/EventHandlers/SubscriptionActivatedPublisher.cs
++++ b/Kofi.Subscriptions/Application/EventHandlers/SubscriptionActivatedPublisher.cs
+@@ -1,4 +1,5 @@
+ using Kofi.Common.Abstractions;
++using Kofi.Subscriptions.Application.Persistence;
+ using Kofi.Subscriptions.Contracts;
+ using Kofi.Subscriptions.Domain.Subscriptions;
+ using Wolverine;
+@@ -6,9 +7,9 @@ using Wolverine;
+ namespace Kofi.Subscriptions.Application.EventHandlers;
+ 
+ // The domain event stays inside the module; other modules hear the public fact.
+-public class SubscriptionActivatedPublisher(IMessageBus bus) : IDomainEventHandler<SubscriptionActivated>
++public class SubscriptionActivatedPublisher(ISubscriptionsDbContext db, IMessageBus bus) : IDomainEventHandler<SubscriptionActivated>
+ {
+-    public Task Handle(SubscriptionActivated activated, CancellationToken ct) =>
+-        bus.PublishAsync(new SubscriptionActivatedIntegrationEvent(activated.SubscriptionId, activated.CustomerId,
+-            activated.ProductId, activated.ActivatedAt)).AsTask();
++    public async Task Handle(SubscriptionActivated activated, CancellationToken ct) =>
++        await bus.PublishAsync(new SubscriptionActivatedIntegrationEvent(activated.SubscriptionId, activated.CustomerId,
++            activated.ProductId, activated.ActivatedAt, await PublishedState.Of(db, activated.SubscriptionId, ct)));
+ }
+diff --git a/Kofi.Subscriptions/Application/EventHandlers/SubscriptionCancelledPublisher.cs b/Kofi.Subscriptions/Application/EventHandlers/SubscriptionCancelledPublisher.cs
+index 19a58f1..806ab3f 100644
+--- a/Kofi.Subscriptions/Application/EventHandlers/SubscriptionCancelledPublisher.cs
++++ b/Kofi.Subscriptions/Application/EventHandlers/SubscriptionCancelledPublisher.cs
+@@ -1,12 +1,14 @@
+ using Kofi.Common.Abstractions;
++using Kofi.Subscriptions.Application.Persistence;
+ using Kofi.Subscriptions.Contracts;
+ using Kofi.Subscriptions.Domain.Subscriptions;
+ using Wolverine;
+ 
+ namespace Kofi.Subscriptions.Application.EventHandlers;
+ 
+-public class SubscriptionCancelledPublisher(IMessageBus bus) : IDomainEventHandler<SubscriptionCancelled>
++public class SubscriptionCancelledPublisher(ISubscriptionsDbContext db, IMessageBus bus) : IDomainEventHandler<SubscriptionCancelled>
+ {
+-    public Task Handle(SubscriptionCancelled cancelled, CancellationToken ct) =>
+-        bus.PublishAsync(new SubscriptionCancelledIntegrationEvent(cancelled.SubscriptionId)).AsTask();
++    public async Task Handle(SubscriptionCancelled cancelled, CancellationToken ct) =>
++        await bus.PublishAsync(new SubscriptionCancelledIntegrationEvent(cancelled.SubscriptionId, cancelled.CancelledAt,
++            await PublishedState.Of(db, cancelled.SubscriptionId, ct)));
+ }
+diff --git a/Kofi.Subscriptions/Application/EventHandlers/SubscriptionProductChangedPublisher.cs b/Kofi.Subscriptions/Application/EventHandlers/SubscriptionProductChangedPublisher.cs
+index f190aee..c43a6e9 100644
+--- a/Kofi.Subscriptions/Application/EventHandlers/SubscriptionProductChangedPublisher.cs
++++ b/Kofi.Subscriptions/Application/EventHandlers/SubscriptionProductChangedPublisher.cs
+@@ -1,12 +1,15 @@
+ using Kofi.Common.Abstractions;
++using Kofi.Subscriptions.Application.Persistence;
+ using Kofi.Subscriptions.Contracts;
+ using Kofi.Subscriptions.Domain.Subscriptions;
+ using Wolverine;
+ 
+ namespace Kofi.Subscriptions.Application.EventHandlers;
+ 
+-public class SubscriptionProductChangedPublisher(IMessageBus bus) : IDomainEventHandler<SubscriptionProductChanged>
++public class SubscriptionProductChangedPublisher(ISubscriptionsDbContext db, IMessageBus bus)
++    : IDomainEventHandler<SubscriptionProductChanged>
+ {
+-    public Task Handle(SubscriptionProductChanged changed, CancellationToken ct) =>
+-        bus.PublishAsync(new SubscriptionProductChangedIntegrationEvent(changed.SubscriptionId, changed.ProductId)).AsTask();
++    public async Task Handle(SubscriptionProductChanged changed, CancellationToken ct) =>
++        await bus.PublishAsync(new SubscriptionProductChangedIntegrationEvent(changed.SubscriptionId, changed.ProductId,
++            await PublishedState.Of(db, changed.SubscriptionId, ct)));
+ }
+diff --git a/Kofi.Subscriptions/Domain/Subscriptions/Subscription.cs b/Kofi.Subscriptions/Domain/Subscriptions/Subscription.cs
+index 81e799a..e934101 100644
+--- a/Kofi.Subscriptions/Domain/Subscriptions/Subscription.cs
++++ b/Kofi.Subscriptions/Domain/Subscriptions/Subscription.cs
+@@ -107,7 +107,7 @@ public class Subscription : AggregateRoot
+         CancelledAt = now;
+         NextDeliveryAt = null;
+ 
+-        Raise(new SubscriptionCancelled(Id));
++        Raise(new SubscriptionCancelled(Id, now));
+ 
+         // Only what was merely planned. A delivery an order was already
+         // placed for runs its own course and can still arrive; stopping that
+diff --git a/Kofi.Subscriptions/Domain/Subscriptions/SubscriptionCancelled.cs b/Kofi.Subscriptions/Domain/Subscriptions/SubscriptionCancelled.cs
+index 91ca698..f94cbc0 100644
+--- a/Kofi.Subscriptions/Domain/Subscriptions/SubscriptionCancelled.cs
++++ b/Kofi.Subscriptions/Domain/Subscriptions/SubscriptionCancelled.cs
+@@ -1,3 +1,3 @@
+ namespace Kofi.Subscriptions.Domain.Subscriptions;
+ 
+-public record SubscriptionCancelled(Guid SubscriptionId) : IDomainEvent;
++public record SubscriptionCancelled(Guid SubscriptionId, DateTime CancelledAt) : IDomainEvent;
+diff --git a/Kofi/HostRegistration.cs b/Kofi/HostRegistration.cs
+index 451305c..f2ccda6 100644
+--- a/Kofi/HostRegistration.cs
++++ b/Kofi/HostRegistration.cs
+@@ -117,14 +117,18 @@ public static class HostRegistration
+             opts.Policies.AutoApplyTransactions();
+             // Domain events raised inside a Wolverine handler leave with its transaction.
+             opts.PublishDomainEventsFromEntityFrameworkCore<AggregateRoot, IDomainEvent>(a => a.DomainEvents);
+-            // Its typed HTTP client is built by a factory the generated code cannot inline.
++            // Typed HTTP clients are built by a factory the generated code cannot
++            // inline; these are resolved from the container instead.
+             opts.CodeGeneration.AlwaysUseServiceLocationFor<IOrdering>();
++            opts.CodeGeneration.AlwaysUseServiceLocationFor<IPaymentGatewayClient>();
+ 
+             // A message waits in the database until its handler is done, so a
+             // crash does not lose it.
+             opts.Policies.UseDurableLocalQueues();
+             // One node: after a restart it takes over its stored messages at once.
+             opts.Durability.Mode = DurabilityMode.Solo;
++            // Storage for [Deduplicated]: ids a handler has already seen.
++            opts.Durability.MessageDeduplicationMode = MessageDeduplicationMode.CompareByString;
+         });
+ 
+         return builder;
+diff --git a/README.md b/README.md
+index 9d864f3..5996385 100644
+--- a/README.md
++++ b/README.md
+@@ -36,9 +36,17 @@ copy of running subscriptions per product and shows `ActiveSubscriptionCount`.
+ 
+ The payment provider calls `POST /payments/webhook` after every decision
+ about a payment, signed with HMAC-SHA256 (`X-Signature`) and retried until
+-it gets a 2xx answer. The webhook is the source of truth for the payment;
+-the customer's redirect back to the shop only shows the result sooner. Both
+-confirm the payment idempotently, by the order's state.
++it gets a 2xx answer. The shop stores it as `PaymentResultReceived` in a
++durable queue before answering; its handler runs once per provider
++`eventId` (`[Deduplicated]`). The webhook is the source of truth for the
++payment; the customer's redirect back to the shop only shows the result
++sooner. Both confirm the payment idempotently, by the order's state.
++
++Handlers tolerate a message delivered twice: Marketing issues one referral
++code per subscription and records a coupon use once per order, without
++refusing it. Subscription events carry the subscription's state and version,
++and Catalog's copy keeps the newest one, so events arriving out of order
++cannot roll it back.
+ 
+ The `Demo` section in `Kofi/appsettings.json` slows down the referral coupon
+ handler (`MarketingDelayMs`) and makes the popularity handler in Catalog fail

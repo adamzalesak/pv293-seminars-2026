@@ -1,0 +1,122 @@
+diff --git a/Kofi.Subscriptions/API/Endpoints/SubscriptionEndpoints.cs b/Kofi.Subscriptions/API/Endpoints/SubscriptionEndpoints.cs
+index 7e7af55..dfe9fc2 100644
+--- a/Kofi.Subscriptions/API/Endpoints/SubscriptionEndpoints.cs
++++ b/Kofi.Subscriptions/API/Endpoints/SubscriptionEndpoints.cs
+@@ -65,7 +65,7 @@ public static class SubscriptionEndpoints
+                     TypedResults.Ok(await mediator.Send(new ActivateSubscriptionCommand { Id = id, SetupId = setupId })))
+             .AllowAnonymous();
+ 
+-        // Called once a day by the cron job in our infrastructure.
++        // The same run Wolverine starts every day, by hand: for tests and support.
+         subscriptions.MapPost("/process-due",
+                 async Task<Ok<ProcessDueDeliveriesResponse>> (DueDeliveryProcessor processor, CancellationToken ct) =>
+                     TypedResults.Ok(await processor.Run(ct)))
+diff --git a/Kofi.Subscriptions/Application/Features/Subscriptions/ProcessDueDeliveries/DueDeliveryProcessor.cs b/Kofi.Subscriptions/Application/Features/Subscriptions/ProcessDueDeliveries/DueDeliveryProcessor.cs
+index 7c24f5b..f090dd7 100644
+--- a/Kofi.Subscriptions/Application/Features/Subscriptions/ProcessDueDeliveries/DueDeliveryProcessor.cs
++++ b/Kofi.Subscriptions/Application/Features/Subscriptions/ProcessDueDeliveries/DueDeliveryProcessor.cs
+@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
+ 
+ namespace Kofi.Subscriptions.Application.Features.Subscriptions.ProcessDueDeliveries;
+ 
+-// What the daily cron job in our infrastructure calls. Every due delivery goes
++// What the daily recurring message (PrepareDueDeliveries) runs. Every due delivery goes
+ // through the same PrepareDeliveryCommand as a manual /prepare, each in its
+ // own scope: its own DbContext, its own transaction. A delivery that is turned
+ // down (no stock, a product gone) stays Scheduled for the next run and does
+diff --git a/Kofi.Subscriptions/Application/Features/Subscriptions/ProcessDueDeliveries/PrepareDueDeliveries.cs b/Kofi.Subscriptions/Application/Features/Subscriptions/ProcessDueDeliveries/PrepareDueDeliveries.cs
+new file mode 100644
+index 0000000..370cc7f
+--- /dev/null
++++ b/Kofi.Subscriptions/Application/Features/Subscriptions/ProcessDueDeliveries/PrepareDueDeliveries.cs
+@@ -0,0 +1,4 @@
++namespace Kofi.Subscriptions.Application.Features.Subscriptions.ProcessDueDeliveries;
++
++// Published by Wolverine on a schedule (Subscriptions:DueDeliveriesCron).
++public record PrepareDueDeliveries;
+diff --git a/Kofi.Subscriptions/Application/Features/Subscriptions/ProcessDueDeliveries/PrepareDueDeliveriesHandler.cs b/Kofi.Subscriptions/Application/Features/Subscriptions/ProcessDueDeliveries/PrepareDueDeliveriesHandler.cs
+new file mode 100644
+index 0000000..f1171e2
+--- /dev/null
++++ b/Kofi.Subscriptions/Application/Features/Subscriptions/ProcessDueDeliveries/PrepareDueDeliveriesHandler.cs
+@@ -0,0 +1,12 @@
++using Wolverine.Attributes;
++
++namespace Kofi.Subscriptions.Application.Features.Subscriptions.ProcessDueDeliveries;
++
++// The daily run, now started by Wolverine instead of a cron job outside the
++// application. The processor gives every delivery its own scope and
++// transaction, so this handler needs none of its own.
++[NonTransactional]
++public class PrepareDueDeliveriesHandler(DueDeliveryProcessor processor)
++{
++    public Task Handle(PrepareDueDeliveries message, CancellationToken ct) => processor.Run(ct);
++}
+diff --git a/Kofi/HostRegistration.cs b/Kofi/HostRegistration.cs
+index dfbacc3..039ee5f 100644
+--- a/Kofi/HostRegistration.cs
++++ b/Kofi/HostRegistration.cs
+@@ -18,6 +18,7 @@ using Kofi.Ordering.Application.Persistence;
+ using Kofi.Ordering.Contracts;
+ using Kofi.Ordering.Infrastructure.Persistence;
+ using Kofi.Services;
++using Kofi.Subscriptions.Application.Features.Subscriptions.ProcessDueDeliveries;
+ using Kofi.Subscriptions.Application.Persistence;
+ using Kofi.Subscriptions.Infrastructure.Persistence;
+ using Kofi.Warehouse.Application.Persistence;
+@@ -132,6 +133,12 @@ public static class HostRegistration
+             // Storage for [Deduplicated]: ids a handler has already seen.
+             opts.Durability.MessageDeduplicationMode = MessageDeduplicationMode.CompareByString;
+ 
++            // Every day, instead of a cron job in our infrastructure. The
++            // processor opens its own scopes, so it comes from the container.
++            opts.CodeGeneration.AlwaysUseServiceLocationFor<DueDeliveryProcessor>();
++            opts.Schedules.ScheduleRecurring<PrepareDueDeliveries>(
++                builder.Configuration["Subscriptions:DueDeliveriesCron"] ?? "0 6 * * *");
++
+             // A failing handler is tried again later, each time waiting twice
+             // as long; a passing outage heals on its own. After the last try
+             // the message waits in the dead letter queue for a person.
+diff --git a/Kofi/appsettings.Development.json b/Kofi/appsettings.Development.json
+index 0c208ae..33cf857 100644
+--- a/Kofi/appsettings.Development.json
++++ b/Kofi/appsettings.Development.json
+@@ -4,5 +4,8 @@
+       "Default": "Information",
+       "Microsoft.AspNetCore": "Warning"
+     }
++  },
++  "Subscriptions": {
++    "DueDeliveriesCron": "* * * * *"
+   }
+ }
+diff --git a/Kofi/appsettings.json b/Kofi/appsettings.json
+index 4521569..aabe932 100644
+--- a/Kofi/appsettings.json
++++ b/Kofi/appsettings.json
+@@ -9,6 +9,9 @@
+   "PaymentGateway": {
+     "WebhookSecret": "kofi-sandbox-webhook-secret"
+   },
++  "Subscriptions": {
++    "DueDeliveriesCron": "0 6 * * *"
++  },
+   "Demo": {
+     "MarketingDelayMs": 0,
+     "PopularityFails": false
+diff --git a/README.md b/README.md
+index 46df249..570b683 100644
+--- a/README.md
++++ b/README.md
+@@ -32,6 +32,11 @@ to its handlers after the commit. Each handler runs on its own durable local
+ queue in its own transaction, so a crash or restart does not lose a message.
+ A failing handler is retried after 1, 2 and 4 seconds; then the message moves
+ to the dead letter queue (`wolverine.wolverine_dead_letters`).
++
++Due deliveries are prepared by a Wolverine recurring message,
++`PrepareDueDeliveries`, on the cron schedule in
++`Subscriptions:DueDeliveriesCron` (daily at 6:00; every minute in
++Development). `POST /subscriptions/process-due` runs the same by hand.
+ Marketing issues the referral code on `SubscriptionActivatedIntegrationEvent`
+ and records a coupon use on `OrderPaidIntegrationEvent`. Catalog keeps its own
+ copy of running subscriptions per product and shows `ActiveSubscriptionCount`.

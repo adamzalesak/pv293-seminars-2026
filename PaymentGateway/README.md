@@ -21,7 +21,15 @@ How the shop uses it:
   Without a browser: `POST /setups/{id}/approve` (saves `tok_visa`, or the
   token in `?token=`) or `/decline`.
 - **Charging a saved card**: `POST /charges`, server to server, with no
-  customer present.
+  customer present. The response carries the result, unless the request says
+  `"confirmBy": "webhook"`: then the payment comes back pending and the
+  result follows by webhook a moment later.
+- **Webhooks.** Every decision about a payment (approved, declined,
+  cancelled, refunded) is posted, about a second later, to `Webhook:Url` as JSON with `eventId`,
+  `paymentId`, `reference`, `status` and `occurredAt`. The body is signed:
+  header `X-Signature: sha256=<hex HMAC-SHA256 of the body with
+  Webhook:Secret>`. A delivery that does not get a 2xx answer is tried again
+  after 1, 5 and 25 seconds with the same `eventId`.
 - **Cancelling and refunding.** `POST /payments/{id}/cancel` stops a payment
   the customer has not made yet; `POST /payments/{id}/refund` returns a
   captured one. Neither changes a payment in any other state.

@@ -178,6 +178,74 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getPostAuthLoginMutationOptions(options), queryClient);
     }
 
+export const getPostPaymentsWebhookUrl = () => {
+
+
+
+
+  return `/payments/webhook`
+}
+
+export const postPaymentsWebhook = async ( options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+  return apiFetch<void>(getPostPaymentsWebhookUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPostPaymentsWebhookMutationKey = () => ['postPaymentsWebhook'] as const;
+
+export const getPostPaymentsWebhookMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postPaymentsWebhook>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postPaymentsWebhook>>, TError,void, TContext> => {
+
+const mutationKey = getPostPaymentsWebhookMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postPaymentsWebhook>>, void> = () => {
+
+
+          return  postPaymentsWebhook(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostPaymentsWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof postPaymentsWebhook>>>
+
+    export type PostPaymentsWebhookMutationError = ErrorType<unknown>
+
+
+    export const usePostPaymentsWebhook = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postPaymentsWebhook>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postPaymentsWebhook>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getPostPaymentsWebhookMutationOptions(options), queryClient);
+    }
+
 export const getPostProductsIdRestockUrl = (id: string,) => {
 
 
