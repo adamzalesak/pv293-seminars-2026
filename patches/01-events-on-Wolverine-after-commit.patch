@@ -1,0 +1,785 @@
+diff --git a/Kofi.Catalog.Tests/Architecture/MessagingRulesTests.cs b/Kofi.Catalog.Tests/Architecture/MessagingRulesTests.cs
+new file mode 100644
+index 0000000..ace83d6
+--- /dev/null
++++ b/Kofi.Catalog.Tests/Architecture/MessagingRulesTests.cs
+@@ -0,0 +1,64 @@
++using System.Reflection;
++using ArchUnitNET.Loader;
++using ArchUnitNET.xUnit;
++using Kofi.Common.Abstractions;
++using MediatR;
++using Wolverine;
++using Xunit;
++using static ArchUnitNET.Fluent.ArchRuleDefinition;
++
++namespace Kofi.Catalog.Tests.Architecture;
++
++// Commands and queries run on MediatR, events on Wolverine, each in its own
++// transaction. Reaching for the other bus from a handler would open a second
++// transaction, or send a message outside the one the handler runs in.
++public class MessagingRulesTests
++{
++    private static readonly Assembly Implementation = Assembly.Load("Kofi.Catalog");
++
++    private static readonly ArchUnitNET.Domain.Architecture Model = new ArchLoader()
++        .LoadAssemblyIncludingDependencies(Implementation)
++        .Build();
++
++    [Fact]
++    public void Wolverine_handlers_do_not_use_MediatR()
++    {
++        Classes()
++            .That()
++            .ResideInAssembly(Implementation)
++            .And()
++            .FollowCustomPredicate(c => IsWolverineHandler(Implementation.GetType(c.FullName)), "are Wolverine handlers")
++            .Should()
++            .NotDependOnAny(Types().That().ResideInNamespaceMatching(@"^MediatR(\.|$)"))
++            .WithoutRequiringPositiveResults()
++            .Check(Model);
++    }
++
++    // As the host finds them: our event handlers, sagas, and any other class
++    // whose name ends in Handler, except MediatR's.
++    private static bool IsWolverineHandler(System.Type? type) =>
++        type != null && !type.IsAbstract &&
++        (Implements(type, typeof(IDomainEventHandler<>), typeof(IIntegrationEventHandler<>)) || typeof(Saga).IsAssignableFrom(type) ||
++         (type.Name.EndsWith("Handler") && !Implements(type, typeof(IRequestHandler<>), typeof(IRequestHandler<,>))));
++
++    private static bool Implements(System.Type type, params System.Type[] generics) =>
++        type.GetInterfaces().Any(i => i.IsGenericType && generics.Contains(i.GetGenericTypeDefinition()));
++
++    [Fact]
++    public void Command_and_query_handlers_do_not_use_the_Wolverine_bus()
++    {
++        Classes()
++            .That()
++            .ResideInAssembly(Implementation)
++            .And()
++            .ImplementInterface(typeof(IRequestHandler<,>))
++            .Or()
++            .ResideInAssembly(Implementation)
++            .And()
++            .ImplementInterface(typeof(IRequestHandler<>))
++            .Should()
++            .NotDependOnAny(Types().That().ResideInNamespaceMatching(@"^Wolverine(\.|$)"))
++            .WithoutRequiringPositiveResults()
++            .Check(Model);
++    }
++}
+diff --git a/Kofi.Common/Abstractions/IDomainEventHandler.cs b/Kofi.Common/Abstractions/IDomainEventHandler.cs
+index 051877a..01e74f3 100644
+--- a/Kofi.Common/Abstractions/IDomainEventHandler.cs
++++ b/Kofi.Common/Abstractions/IDomainEventHandler.cs
+@@ -1,7 +1,10 @@
+ using Kofi.Common.Domain;
+-using MediatR;
+ 
+ namespace Kofi.Common.Abstractions;
+ 
+-public interface IDomainEventHandler<in TEvent> : INotificationHandler<TEvent>
+-    where TEvent : IDomainEvent;
++// Wolverine runs every implementation as its own handler, after the commit.
++public interface IDomainEventHandler<in TEvent>
++    where TEvent : IDomainEvent
++{
++    Task Handle(TEvent domainEvent, CancellationToken ct);
++}
+diff --git a/Kofi.Common/Abstractions/IIntegrationEventHandler.cs b/Kofi.Common/Abstractions/IIntegrationEventHandler.cs
+index 0166143..d156503 100644
+--- a/Kofi.Common/Abstractions/IIntegrationEventHandler.cs
++++ b/Kofi.Common/Abstractions/IIntegrationEventHandler.cs
+@@ -1,7 +1,10 @@
+ using Kofi.Contracts;
+-using MediatR;
+ 
+ namespace Kofi.Common.Abstractions;
+ 
+-public interface IIntegrationEventHandler<in TEvent> : INotificationHandler<TEvent>
+-    where TEvent : IIntegrationEvent;
++// Wolverine runs every implementation as its own handler, after the commit.
++public interface IIntegrationEventHandler<in TEvent>
++    where TEvent : IIntegrationEvent
++{
++    Task Handle(TEvent integrationEvent, CancellationToken ct);
++}
+diff --git a/Kofi.Common/Kofi.Common.csproj b/Kofi.Common/Kofi.Common.csproj
+index 87f3cbb..0a666ef 100644
+--- a/Kofi.Common/Kofi.Common.csproj
++++ b/Kofi.Common/Kofi.Common.csproj
+@@ -10,6 +10,9 @@
+     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" />
+     <PackageReference Include="MediatR" Version="12.5.0" />
++    <PackageReference Include="WolverineFx" Version="6.64.2" />
++    <!-- The generator would put a type with the same name into every module. -->
++    <PackageReference Include="JasperFx.SourceGenerator" Version="2.102.0" ExcludeAssets="analyzers" PrivateAssets="all" />
+     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+   </ItemGroup>
+diff --git a/Kofi.Marketing.Tests/Architecture/MessagingRulesTests.cs b/Kofi.Marketing.Tests/Architecture/MessagingRulesTests.cs
+new file mode 100644
+index 0000000..5ae264c
+--- /dev/null
++++ b/Kofi.Marketing.Tests/Architecture/MessagingRulesTests.cs
+@@ -0,0 +1,64 @@
++using System.Reflection;
++using ArchUnitNET.Loader;
++using ArchUnitNET.xUnit;
++using Kofi.Common.Abstractions;
++using MediatR;
++using Wolverine;
++using Xunit;
++using static ArchUnitNET.Fluent.ArchRuleDefinition;
++
++namespace Kofi.Marketing.Tests.Architecture;
++
++// Commands and queries run on MediatR, events on Wolverine, each in its own
++// transaction. Reaching for the other bus from a handler would open a second
++// transaction, or send a message outside the one the handler runs in.
++public class MessagingRulesTests
++{
++    private static readonly Assembly Implementation = Assembly.Load("Kofi.Marketing");
++
++    private static readonly ArchUnitNET.Domain.Architecture Model = new ArchLoader()
++        .LoadAssemblyIncludingDependencies(Implementation)
++        .Build();
++
++    [Fact]
++    public void Wolverine_handlers_do_not_use_MediatR()
++    {
++        Classes()
++            .That()
++            .ResideInAssembly(Implementation)
++            .And()
++            .FollowCustomPredicate(c => IsWolverineHandler(Implementation.GetType(c.FullName)), "are Wolverine handlers")
++            .Should()
++            .NotDependOnAny(Types().That().ResideInNamespaceMatching(@"^MediatR(\.|$)"))
++            .WithoutRequiringPositiveResults()
++            .Check(Model);
++    }
++
++    // As the host finds them: our event handlers, sagas, and any other class
++    // whose name ends in Handler, except MediatR's.
++    private static bool IsWolverineHandler(System.Type? type) =>
++        type != null && !type.IsAbstract &&
++        (Implements(type, typeof(IDomainEventHandler<>), typeof(IIntegrationEventHandler<>)) || typeof(Saga).IsAssignableFrom(type) ||
++         (type.Name.EndsWith("Handler") && !Implements(type, typeof(IRequestHandler<>), typeof(IRequestHandler<,>))));
++
++    private static bool Implements(System.Type type, params System.Type[] generics) =>
++        type.GetInterfaces().Any(i => i.IsGenericType && generics.Contains(i.GetGenericTypeDefinition()));
++
++    [Fact]
++    public void Command_and_query_handlers_do_not_use_the_Wolverine_bus()
++    {
++        Classes()
++            .That()
++            .ResideInAssembly(Implementation)
++            .And()
++            .ImplementInterface(typeof(IRequestHandler<,>))
++            .Or()
++            .ResideInAssembly(Implementation)
++            .And()
++            .ImplementInterface(typeof(IRequestHandler<>))
++            .Should()
++            .NotDependOnAny(Types().That().ResideInNamespaceMatching(@"^Wolverine(\.|$)"))
++            .WithoutRequiringPositiveResults()
++            .Check(Model);
++    }
++}
+diff --git a/Kofi.Ordering.Tests/Architecture/MessagingRulesTests.cs b/Kofi.Ordering.Tests/Architecture/MessagingRulesTests.cs
+new file mode 100644
+index 0000000..86b6316
+--- /dev/null
++++ b/Kofi.Ordering.Tests/Architecture/MessagingRulesTests.cs
+@@ -0,0 +1,64 @@
++using System.Reflection;
++using ArchUnitNET.Loader;
++using ArchUnitNET.xUnit;
++using Kofi.Common.Abstractions;
++using MediatR;
++using Wolverine;
++using Xunit;
++using static ArchUnitNET.Fluent.ArchRuleDefinition;
++
++namespace Kofi.Ordering.Tests.Architecture;
++
++// Commands and queries run on MediatR, events on Wolverine, each in its own
++// transaction. Reaching for the other bus from a handler would open a second
++// transaction, or send a message outside the one the handler runs in.
++public class MessagingRulesTests
++{
++    private static readonly Assembly Implementation = Assembly.Load("Kofi.Ordering");
++
++    private static readonly ArchUnitNET.Domain.Architecture Model = new ArchLoader()
++        .LoadAssemblyIncludingDependencies(Implementation)
++        .Build();
++
++    [Fact]
++    public void Wolverine_handlers_do_not_use_MediatR()
++    {
++        Classes()
++            .That()
++            .ResideInAssembly(Implementation)
++            .And()
++            .FollowCustomPredicate(c => IsWolverineHandler(Implementation.GetType(c.FullName)), "are Wolverine handlers")
++            .Should()
++            .NotDependOnAny(Types().That().ResideInNamespaceMatching(@"^MediatR(\.|$)"))
++            .WithoutRequiringPositiveResults()
++            .Check(Model);
++    }
++
++    // As the host finds them: our event handlers, sagas, and any other class
++    // whose name ends in Handler, except MediatR's.
++    private static bool IsWolverineHandler(System.Type? type) =>
++        type != null && !type.IsAbstract &&
++        (Implements(type, typeof(IDomainEventHandler<>), typeof(IIntegrationEventHandler<>)) || typeof(Saga).IsAssignableFrom(type) ||
++         (type.Name.EndsWith("Handler") && !Implements(type, typeof(IRequestHandler<>), typeof(IRequestHandler<,>))));
++
++    private static bool Implements(System.Type type, params System.Type[] generics) =>
++        type.GetInterfaces().Any(i => i.IsGenericType && generics.Contains(i.GetGenericTypeDefinition()));
++
++    [Fact]
++    public void Command_and_query_handlers_do_not_use_the_Wolverine_bus()
++    {
++        Classes()
++            .That()
++            .ResideInAssembly(Implementation)
++            .And()
++            .ImplementInterface(typeof(IRequestHandler<,>))
++            .Or()
++            .ResideInAssembly(Implementation)
++            .And()
++            .ImplementInterface(typeof(IRequestHandler<>))
++            .Should()
++            .NotDependOnAny(Types().That().ResideInNamespaceMatching(@"^Wolverine(\.|$)"))
++            .WithoutRequiringPositiveResults()
++            .Check(Model);
++    }
++}
+diff --git a/Kofi.Ordering/Application/EventHandlers/OrderPaidPublisher.cs b/Kofi.Ordering/Application/EventHandlers/OrderPaidPublisher.cs
+index ba96daa..668c0e6 100644
+--- a/Kofi.Ordering/Application/EventHandlers/OrderPaidPublisher.cs
++++ b/Kofi.Ordering/Application/EventHandlers/OrderPaidPublisher.cs
+@@ -1,12 +1,12 @@
+ using Kofi.Common.Abstractions;
+ using Kofi.Ordering.Contracts;
+ using Kofi.Ordering.Domain.Orders;
+-using MediatR;
++using Wolverine;
+ 
+ namespace Kofi.Ordering.Application.EventHandlers;
+ 
+-public class OrderPaidPublisher(IPublisher publisher) : IDomainEventHandler<OrderPaid>
++public class OrderPaidPublisher(IMessageBus bus) : IDomainEventHandler<OrderPaid>
+ {
+     public Task Handle(OrderPaid paid, CancellationToken ct) =>
+-        publisher.Publish(new OrderPaidIntegrationEvent(paid.OrderId, paid.CustomerId, paid.CouponCode), ct);
++        bus.PublishAsync(new OrderPaidIntegrationEvent(paid.OrderId, paid.CustomerId, paid.CouponCode)).AsTask();
+ }
+diff --git a/Kofi.Subscriptions.Tests/Architecture/MessagingRulesTests.cs b/Kofi.Subscriptions.Tests/Architecture/MessagingRulesTests.cs
+new file mode 100644
+index 0000000..717f470
+--- /dev/null
++++ b/Kofi.Subscriptions.Tests/Architecture/MessagingRulesTests.cs
+@@ -0,0 +1,64 @@
++using System.Reflection;
++using ArchUnitNET.Loader;
++using ArchUnitNET.xUnit;
++using Kofi.Common.Abstractions;
++using MediatR;
++using Wolverine;
++using Xunit;
++using static ArchUnitNET.Fluent.ArchRuleDefinition;
++
++namespace Kofi.Subscriptions.Tests.Architecture;
++
++// Commands and queries run on MediatR, events on Wolverine, each in its own
++// transaction. Reaching for the other bus from a handler would open a second
++// transaction, or send a message outside the one the handler runs in.
++public class MessagingRulesTests
++{
++    private static readonly Assembly Implementation = Assembly.Load("Kofi.Subscriptions");
++
++    private static readonly ArchUnitNET.Domain.Architecture Model = new ArchLoader()
++        .LoadAssemblyIncludingDependencies(Implementation)
++        .Build();
++
++    [Fact]
++    public void Wolverine_handlers_do_not_use_MediatR()
++    {
++        Classes()
++            .That()
++            .ResideInAssembly(Implementation)
++            .And()
++            .FollowCustomPredicate(c => IsWolverineHandler(Implementation.GetType(c.FullName)), "are Wolverine handlers")
++            .Should()
++            .NotDependOnAny(Types().That().ResideInNamespaceMatching(@"^MediatR(\.|$)"))
++            .WithoutRequiringPositiveResults()
++            .Check(Model);
++    }
++
++    // As the host finds them: our event handlers, sagas, and any other class
++    // whose name ends in Handler, except MediatR's.
++    private static bool IsWolverineHandler(System.Type? type) =>
++        type != null && !type.IsAbstract &&
++        (Implements(type, typeof(IDomainEventHandler<>), typeof(IIntegrationEventHandler<>)) || typeof(Saga).IsAssignableFrom(type) ||
++         (type.Name.EndsWith("Handler") && !Implements(type, typeof(IRequestHandler<>), typeof(IRequestHandler<,>))));
++
++    private static bool Implements(System.Type type, params System.Type[] generics) =>
++        type.GetInterfaces().Any(i => i.IsGenericType && generics.Contains(i.GetGenericTypeDefinition()));
++
++    [Fact]
++    public void Command_and_query_handlers_do_not_use_the_Wolverine_bus()
++    {
++        Classes()
++            .That()
++            .ResideInAssembly(Implementation)
++            .And()
++            .ImplementInterface(typeof(IRequestHandler<,>))
++            .Or()
++            .ResideInAssembly(Implementation)
++            .And()
++            .ImplementInterface(typeof(IRequestHandler<>))
++            .Should()
++            .NotDependOnAny(Types().That().ResideInNamespaceMatching(@"^Wolverine(\.|$)"))
++            .WithoutRequiringPositiveResults()
++            .Check(Model);
++    }
++}
+diff --git a/Kofi.Subscriptions/Application/EventHandlers/SendWelcomeEmailOnSubscriptionActivated.cs b/Kofi.Subscriptions/Application/EventHandlers/SendWelcomeEmailOnSubscriptionActivated.cs
+index 41a13bd..d768597 100644
+--- a/Kofi.Subscriptions/Application/EventHandlers/SendWelcomeEmailOnSubscriptionActivated.cs
++++ b/Kofi.Subscriptions/Application/EventHandlers/SendWelcomeEmailOnSubscriptionActivated.cs
+@@ -4,9 +4,12 @@ using Kofi.Ordering.Contracts;
+ using Kofi.Subscriptions.Application.Persistence;
+ using Kofi.Subscriptions.Domain.Subscriptions;
+ using Microsoft.EntityFrameworkCore;
++using Wolverine.Attributes;
+ 
+ namespace Kofi.Subscriptions.Application.EventHandlers;
+ 
++// Reads and sends; it reaches two modules' data, so no transaction of its own.
++[NonTransactional]
+ public class SendWelcomeEmailOnSubscriptionActivated(ISubscriptionsDbContext db, IOrdering ordering, IEmailTransport email)
+     : IDomainEventHandler<SubscriptionActivated>
+ {
+diff --git a/Kofi.Subscriptions/Application/EventHandlers/SubscriptionActivatedPublisher.cs b/Kofi.Subscriptions/Application/EventHandlers/SubscriptionActivatedPublisher.cs
+index 55c2f53..8d7459e 100644
+--- a/Kofi.Subscriptions/Application/EventHandlers/SubscriptionActivatedPublisher.cs
++++ b/Kofi.Subscriptions/Application/EventHandlers/SubscriptionActivatedPublisher.cs
+@@ -1,14 +1,14 @@
+ using Kofi.Common.Abstractions;
+ using Kofi.Subscriptions.Contracts;
+ using Kofi.Subscriptions.Domain.Subscriptions;
+-using MediatR;
++using Wolverine;
+ 
+ namespace Kofi.Subscriptions.Application.EventHandlers;
+ 
+ // The domain event stays inside the module; other modules hear the public fact.
+-public class SubscriptionActivatedPublisher(IPublisher publisher) : IDomainEventHandler<SubscriptionActivated>
++public class SubscriptionActivatedPublisher(IMessageBus bus) : IDomainEventHandler<SubscriptionActivated>
+ {
+     public Task Handle(SubscriptionActivated activated, CancellationToken ct) =>
+-        publisher.Publish(new SubscriptionActivatedIntegrationEvent(activated.SubscriptionId, activated.CustomerId,
+-            activated.ProductId, activated.ActivatedAt), ct);
++        bus.PublishAsync(new SubscriptionActivatedIntegrationEvent(activated.SubscriptionId, activated.CustomerId,
++            activated.ProductId, activated.ActivatedAt)).AsTask();
+ }
+diff --git a/Kofi.Subscriptions/Application/EventHandlers/SubscriptionCancelledPublisher.cs b/Kofi.Subscriptions/Application/EventHandlers/SubscriptionCancelledPublisher.cs
+index feb7d72..19a58f1 100644
+--- a/Kofi.Subscriptions/Application/EventHandlers/SubscriptionCancelledPublisher.cs
++++ b/Kofi.Subscriptions/Application/EventHandlers/SubscriptionCancelledPublisher.cs
+@@ -1,12 +1,12 @@
+ using Kofi.Common.Abstractions;
+ using Kofi.Subscriptions.Contracts;
+ using Kofi.Subscriptions.Domain.Subscriptions;
+-using MediatR;
++using Wolverine;
+ 
+ namespace Kofi.Subscriptions.Application.EventHandlers;
+ 
+-public class SubscriptionCancelledPublisher(IPublisher publisher) : IDomainEventHandler<SubscriptionCancelled>
++public class SubscriptionCancelledPublisher(IMessageBus bus) : IDomainEventHandler<SubscriptionCancelled>
+ {
+     public Task Handle(SubscriptionCancelled cancelled, CancellationToken ct) =>
+-        publisher.Publish(new SubscriptionCancelledIntegrationEvent(cancelled.SubscriptionId), ct);
++        bus.PublishAsync(new SubscriptionCancelledIntegrationEvent(cancelled.SubscriptionId)).AsTask();
+ }
+diff --git a/Kofi.Subscriptions/Application/EventHandlers/SubscriptionProductChangedPublisher.cs b/Kofi.Subscriptions/Application/EventHandlers/SubscriptionProductChangedPublisher.cs
+index 73fe31d..f190aee 100644
+--- a/Kofi.Subscriptions/Application/EventHandlers/SubscriptionProductChangedPublisher.cs
++++ b/Kofi.Subscriptions/Application/EventHandlers/SubscriptionProductChangedPublisher.cs
+@@ -1,12 +1,12 @@
+ using Kofi.Common.Abstractions;
+ using Kofi.Subscriptions.Contracts;
+ using Kofi.Subscriptions.Domain.Subscriptions;
+-using MediatR;
++using Wolverine;
+ 
+ namespace Kofi.Subscriptions.Application.EventHandlers;
+ 
+-public class SubscriptionProductChangedPublisher(IPublisher publisher) : IDomainEventHandler<SubscriptionProductChanged>
++public class SubscriptionProductChangedPublisher(IMessageBus bus) : IDomainEventHandler<SubscriptionProductChanged>
+ {
+     public Task Handle(SubscriptionProductChanged changed, CancellationToken ct) =>
+-        publisher.Publish(new SubscriptionProductChangedIntegrationEvent(changed.SubscriptionId, changed.ProductId), ct);
++        bus.PublishAsync(new SubscriptionProductChangedIntegrationEvent(changed.SubscriptionId, changed.ProductId)).AsTask();
+ }
+diff --git a/Kofi.Warehouse.Tests/Architecture/MessagingRulesTests.cs b/Kofi.Warehouse.Tests/Architecture/MessagingRulesTests.cs
+new file mode 100644
+index 0000000..4b74934
+--- /dev/null
++++ b/Kofi.Warehouse.Tests/Architecture/MessagingRulesTests.cs
+@@ -0,0 +1,64 @@
++using System.Reflection;
++using ArchUnitNET.Loader;
++using ArchUnitNET.xUnit;
++using Kofi.Common.Abstractions;
++using MediatR;
++using Wolverine;
++using Xunit;
++using static ArchUnitNET.Fluent.ArchRuleDefinition;
++
++namespace Kofi.Warehouse.Tests.Architecture;
++
++// Commands and queries run on MediatR, events on Wolverine, each in its own
++// transaction. Reaching for the other bus from a handler would open a second
++// transaction, or send a message outside the one the handler runs in.
++public class MessagingRulesTests
++{
++    private static readonly Assembly Implementation = Assembly.Load("Kofi.Warehouse");
++
++    private static readonly ArchUnitNET.Domain.Architecture Model = new ArchLoader()
++        .LoadAssemblyIncludingDependencies(Implementation)
++        .Build();
++
++    [Fact]
++    public void Wolverine_handlers_do_not_use_MediatR()
++    {
++        Classes()
++            .That()
++            .ResideInAssembly(Implementation)
++            .And()
++            .FollowCustomPredicate(c => IsWolverineHandler(Implementation.GetType(c.FullName)), "are Wolverine handlers")
++            .Should()
++            .NotDependOnAny(Types().That().ResideInNamespaceMatching(@"^MediatR(\.|$)"))
++            .WithoutRequiringPositiveResults()
++            .Check(Model);
++    }
++
++    // As the host finds them: our event handlers, sagas, and any other class
++    // whose name ends in Handler, except MediatR's.
++    private static bool IsWolverineHandler(System.Type? type) =>
++        type != null && !type.IsAbstract &&
++        (Implements(type, typeof(IDomainEventHandler<>), typeof(IIntegrationEventHandler<>)) || typeof(Saga).IsAssignableFrom(type) ||
++         (type.Name.EndsWith("Handler") && !Implements(type, typeof(IRequestHandler<>), typeof(IRequestHandler<,>))));
++
++    private static bool Implements(System.Type type, params System.Type[] generics) =>
++        type.GetInterfaces().Any(i => i.IsGenericType && generics.Contains(i.GetGenericTypeDefinition()));
++
++    [Fact]
++    public void Command_and_query_handlers_do_not_use_the_Wolverine_bus()
++    {
++        Classes()
++            .That()
++            .ResideInAssembly(Implementation)
++            .And()
++            .ImplementInterface(typeof(IRequestHandler<,>))
++            .Or()
++            .ResideInAssembly(Implementation)
++            .And()
++            .ImplementInterface(typeof(IRequestHandler<>))
++            .Should()
++            .NotDependOnAny(Types().That().ResideInNamespaceMatching(@"^Wolverine(\.|$)"))
++            .WithoutRequiringPositiveResults()
++            .Check(Model);
++    }
++}
+diff --git a/Kofi/Host/DomainEventBehavior.cs b/Kofi/Host/DomainEventBehavior.cs
+index af7cd22..295fe4d 100644
+--- a/Kofi/Host/DomainEventBehavior.cs
++++ b/Kofi/Host/DomainEventBehavior.cs
+@@ -3,37 +3,31 @@ using MediatR;
+ 
+ namespace Kofi.Host;
+ 
+-public class DomainEventBehavior<TRequest, TResponse>(ModuleUnitOfWork work, IPublisher publisher)
++// Domain events are handed to Wolverine after the command's transaction commits.
++public class DomainEventBehavior<TRequest, TResponse>(ModuleUnitOfWork work)
+     : IPipelineBehavior<TRequest, TResponse> where TRequest : notnull
+ {
+     public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
+     {
+         var response = await next(ct);
+ 
+-        while (true)
++        var aggregates = work.Contexts.SelectMany(c => c.ChangeTracker.Entries<AggregateRoot>())
++            .Select(e => e.Entity)
++            .Where(a => a.DomainEvents.Count > 0)
++            .ToList();
++        if (aggregates.Count == 0)
+         {
+-            var aggregates = work.Contexts.SelectMany(c => c.ChangeTracker.Entries<AggregateRoot>())
+-                .Select(e => e.Entity)
+-                .Where(a => a.DomainEvents.Count > 0)
+-                .ToList();
+-            if (aggregates.Count == 0)
+-            {
+-                break;
+-            }
+-
+-            var events = aggregates.SelectMany(a => a.DomainEvents).ToList();
+-
+-            foreach (var aggregate in aggregates)
+-            {
+-                aggregate.ClearDomainEvents();
+-            }
++            return response;
++        }
+ 
+-            foreach (var domainEvent in events)
+-            {
+-                await publisher.Publish(domainEvent, ct);
+-            }
++        var events = aggregates.SelectMany(a => a.DomainEvents).ToList();
++        foreach (var aggregate in aggregates)
++        {
++            aggregate.ClearDomainEvents();
+         }
+ 
++        work.Publish(events);
++
+         return response;
+     }
+ }
+diff --git a/Kofi/Host/ModuleUnitOfWork.cs b/Kofi/Host/ModuleUnitOfWork.cs
+index f59b007..cff4e3e 100644
+--- a/Kofi/Host/ModuleUnitOfWork.cs
++++ b/Kofi/Host/ModuleUnitOfWork.cs
+@@ -1,15 +1,20 @@
+ using Kofi.Common.Persistence;
+ using Microsoft.EntityFrameworkCore;
+ using Microsoft.EntityFrameworkCore.Storage;
++using Wolverine;
+ 
+ namespace Kofi.Host;
+ 
+-public class ModuleUnitOfWork(IEnumerable<AggregateDbContext> contexts)
++public class ModuleUnitOfWork(IEnumerable<AggregateDbContext> contexts, IMessageBus bus)
+ {
+     private readonly IReadOnlyList<AggregateDbContext> _contexts = contexts.ToList();
++    private readonly List<object> _events = [];
+     public bool IsActive => _contexts.Any(c => c.Database.CurrentTransaction != null);
+     public IReadOnlyList<AggregateDbContext> Contexts => _contexts;
+ 
++    // Events of the command, handed to Wolverine once the data is committed.
++    public void Publish(IEnumerable<object> events) => _events.AddRange(events);
++
+     public async Task<T> Run<T>(Func<Task<T>> action, CancellationToken ct)
+     {
+         if (IsActive)
+@@ -37,10 +42,20 @@ public class ModuleUnitOfWork(IEnumerable<AggregateDbContext> contexts)
+             }
+ 
+             await transaction.CommitAsync(ct);
++
++            // After the commit, so no handler sees data that was rolled back.
++            var events = _events.ToList();
++            _events.Clear();
++            foreach (var @event in events)
++            {
++                await bus.PublishAsync(@event);
++            }
++
+             return response;
+         }
+         catch
+         {
++            _events.Clear();
+             await transaction.RollbackAsync(ct);
+             throw;
+         }
+diff --git a/Kofi/Host/TransactionalDomainEventPublisher.cs b/Kofi/Host/TransactionalDomainEventPublisher.cs
+deleted file mode 100644
+index 0278503..0000000
+--- a/Kofi/Host/TransactionalDomainEventPublisher.cs
++++ /dev/null
+@@ -1,30 +0,0 @@
+-using Kofi.Common.Domain;
+-using Kofi.Contracts;
+-using MediatR;
+-
+-namespace Kofi.Host;
+-
+-public class TransactionalDomainEventPublisher(ModuleUnitOfWork work) : INotificationPublisher
+-{
+-    public async Task Publish(IEnumerable<NotificationHandlerExecutor> handlers, INotification notification, CancellationToken ct)
+-    {
+-        async Task<bool> Run()
+-        {
+-            foreach (var handler in handlers)
+-            {
+-                await handler.HandlerCallback(notification, ct);
+-            }
+-
+-            return true;
+-        }
+-
+-        if (notification is IDomainEvent or IIntegrationEvent)
+-        {
+-            await work.Run(Run, ct);
+-        }
+-        else
+-        {
+-            await Run();
+-        }
+-    }
+-}
+diff --git a/Kofi/HostRegistration.cs b/Kofi/HostRegistration.cs
+index 11432f0..2cdc85e 100644
+--- a/Kofi/HostRegistration.cs
++++ b/Kofi/HostRegistration.cs
+@@ -2,15 +2,33 @@ using System.Globalization;
+ using System.Reflection;
+ using FluentValidation;
+ using Kofi.Auth;
++using Kofi.Catalog.Application.Persistence;
++using Kofi.Catalog.Infrastructure.Persistence;
++using Kofi.Common.Abstractions;
+ using Kofi.Common.Behaviors;
+ using Kofi.Common.Bootstrap;
+ using Kofi.Common.Demo;
++using Kofi.Common.Domain;
+ using Kofi.Common.Services;
+ using Kofi.Host;
++using Kofi.Marketing.Application.Persistence;
++using Kofi.Marketing.Infrastructure.Persistence;
++using Kofi.Ordering.Application.Persistence;
++using Kofi.Ordering.Contracts;
++using Kofi.Ordering.Infrastructure.Persistence;
+ using Kofi.Services;
++using Kofi.Subscriptions.Application.Persistence;
++using Kofi.Subscriptions.Infrastructure.Persistence;
++using Kofi.Warehouse.Application.Persistence;
++using Kofi.Warehouse.Infrastructure.Persistence;
+ using MediatR;
+ using Npgsql;
++using OpenTelemetry.Metrics;
++using OpenTelemetry.Trace;
+ using Scalar.AspNetCore;
++using Wolverine;
++using Wolverine.EntityFrameworkCore;
++using Wolverine.Postgresql;
+ 
+ namespace Kofi;
+ 
+@@ -54,7 +72,6 @@ public static class HostRegistration
+             cfg.AddOpenBehavior(typeof(AuditBehavior<,>));
+             cfg.AddOpenBehavior(typeof(TransactionBehavior<,>));
+             cfg.AddOpenBehavior(typeof(DomainEventBehavior<,>));
+-            cfg.NotificationPublisherType = typeof(TransactionalDomainEventPublisher);
+         });
+ 
+         ValidatorOptions.Global.LanguageManager.Culture = CultureInfo.InvariantCulture;
+@@ -62,6 +79,57 @@ public static class HostRegistration
+         return services;
+     }
+ 
++    public static WebApplicationBuilder AddKofiMessaging(this WebApplicationBuilder builder, IEnumerable<Assembly> assemblies)
++    {
++        var connectionString = builder.Configuration.GetConnectionString("kofidb")!;
++        // Wolverine's spans and metrics in the Aspire dashboard: a message
++        // handled after the commit stays in the trace of the request that sent it.
++        builder.Services.AddOpenTelemetry()
++            .WithTracing(tracing => tracing.AddSource("Wolverine"))
++            .WithMetrics(metrics => metrics.AddMeter("Wolverine*"));
++
++        builder.Host.UseWolverine(opts =>
++        {
++            // Every handler of an event runs on its own: its own queue and
++            // transaction, so one failing reaction does not stop the others.
++            opts.MultipleHandlerBehavior = MultipleHandlerBehavior.Separated;
++
++            // Wolverine finds its handlers by its own conventions (a name ending
++            // in Handler, a saga) and our event handlers. MediatR's command and
++            // query handlers look the same by name; they stay on MediatR.
++            opts.Discovery.CustomizeHandlerDiscovery(q =>
++            {
++                q.Includes.WithCondition("Kofi event handler", IsEventHandler);
++                q.Excludes.WithCondition("MediatR request handler", IsMediatRHandler);
++            });
++            foreach (var assembly in assemblies)
++            {
++                opts.Discovery.IncludeAssembly(assembly);
++            }
++
++            opts.PersistMessagesWithPostgresql(connectionString, "wolverine");
++            opts.UseEntityFrameworkCoreTransactions()
++                .WithDbContextAbstraction<ICatalogDbContext, CatalogDbContext>()
++                .WithDbContextAbstraction<IWarehouseDbContext, WarehouseDbContext>()
++                .WithDbContextAbstraction<IOrderingDbContext, OrderingDbContext>()
++                .WithDbContextAbstraction<ISubscriptionsDbContext, SubscriptionsDbContext>()
++                .WithDbContextAbstraction<IMarketingDbContext, MarketingDbContext>();
++            opts.Policies.AutoApplyTransactions();
++            // Domain events raised inside a Wolverine handler leave with its transaction.
++            opts.PublishDomainEventsFromEntityFrameworkCore<AggregateRoot, IDomainEvent>(a => a.DomainEvents);
++            // Its typed HTTP client is built by a factory the generated code cannot inline.
++            opts.CodeGeneration.AlwaysUseServiceLocationFor<IOrdering>();
++        });
++
++        return builder;
++    }
++
++    private static bool IsEventHandler(Type type) => Implements(type, typeof(IDomainEventHandler<>), typeof(IIntegrationEventHandler<>));
++    private static bool IsMediatRHandler(Type type) => Implements(type, typeof(IRequestHandler<>), typeof(IRequestHandler<,>));
++
++    private static bool Implements(Type type, params Type[] generics) =>
++        type.GetInterfaces().Any(i => i.IsGenericType && generics.Contains(i.GetGenericTypeDefinition()));
++
+     public static WebApplication UseKofiHost(this WebApplication app)
+     {
+         app.UseExceptionHandler();
+diff --git a/Kofi/Kofi.csproj b/Kofi/Kofi.csproj
+index f2e4564..ed1ef40 100644
+--- a/Kofi/Kofi.csproj
++++ b/Kofi/Kofi.csproj
+@@ -14,6 +14,9 @@
+     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
+     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
+     <PackageReference Include="Scalar.AspNetCore" Version="2.16.10" />
++    <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.64.2" />
++    <PackageReference Include="WolverineFx.EntityFrameworkCore" Version="6.64.2" />
++    <PackageReference Include="WolverineFx.Postgresql" Version="6.64.2" />
+   </ItemGroup>
+ 
+   <PropertyGroup>
+diff --git a/Kofi/Program.cs b/Kofi/Program.cs
+index c739102..7a66575 100644
+--- a/Kofi/Program.cs
++++ b/Kofi/Program.cs
+@@ -16,6 +16,7 @@ builder.Services.AddMarketingModule(moduleAssemblies);
+ // Catalog comes last: it loads its copy of the subscriptions after they are seeded.
+ builder.Services.AddCatalogModule(moduleAssemblies);
+ builder.Services.AddKofiPipeline(moduleAssemblies);
++builder.AddKofiMessaging(moduleAssemblies);
+ 
+ var app = builder.Build();
+ app.UseKofiHost();
+diff --git a/README.md b/README.md
+index 3afdf3b..ba285ea 100644
+--- a/README.md
++++ b/README.md
+@@ -26,7 +26,9 @@ The discount applies to the items, not to shipping. Each customer uses a
+ coupon once, and the owner of a referral code cannot use it.
+ 
+ Modules announce what happened through integration events in their
+-Contracts, delivered in-process by MediatR inside the command transaction.
++Contracts. Commands and queries run on MediatR; every event, domain or
++integration, is handed to Wolverine after the command commits, and each of
++its handlers runs on its own local queue in its own transaction.
+ Marketing issues the referral code on `SubscriptionActivatedIntegrationEvent`
+ and records a coupon use on `OrderPaidIntegrationEvent`. Catalog keeps its own
+ copy of running subscriptions per product and shows `ActiveSubscriptionCount`.

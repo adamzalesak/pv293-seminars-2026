@@ -9,13 +9,16 @@ var db = postgres.AddDatabase("kofidb");
 var mail = builder.AddMailPit("mail");
 
 // Stands in for the card payment provider; not part of KoFI.
-var payments = builder.AddProject<Projects.PaymentGateway>("payments");
+var payments = builder.AddDotnetProject("payments", "../PaymentGateway/PaymentGateway.csproj");
 
-var api = builder.AddProject<Projects.Kofi>("api")
+var api = builder.AddDotnetProject("api", "../Kofi/Kofi.csproj")
     .WithReference(db)
     .WithReference(mail)
     .WithReference(payments)
     .WaitFor(db);
+
+// The provider calls the shop back after every payment decision.
+payments.WithEnvironment("Webhook__Url", ReferenceExpression.Create($"{api.GetEndpoint("http")}/payments/webhook"));
 
 // The shop's front end. Vite proxies /api to the API, so the browser sees one origin.
 builder.AddViteApp("web", "../Kofi.Web")

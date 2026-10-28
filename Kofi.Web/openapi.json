@@ -39,6 +39,18 @@
                 }
             }
         },
+        "/payments/webhook": {
+            "post": {
+                "tags": [
+                    "Payments"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/products/{id}/restock": {
             "post": {
                 "tags": [
@@ -2936,6 +2948,9 @@
     "tags": [
         {
             "name": "Kofi"
+        },
+        {
+            "name": "Payments"
         },
         {
             "name": "Products"

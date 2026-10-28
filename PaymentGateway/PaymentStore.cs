@@ -7,19 +7,26 @@ public class PaymentStore
     private readonly Dictionary<Guid, Payment> payments = new();
     private readonly Dictionary<string, Guid> byIdempotencyKey = new();
 
+    // Every decision about a payment, however it was reached.
+    public event Action<Payment>? Moved;
+
     // Creating and storing happen together, so two requests with the same
     // key can never both create a payment.
-    public Payment GetOrCreate(string idempotencyKey, Func<Payment> create)
+    public Payment GetOrCreate(string idempotencyKey, Func<Payment> create) => GetOrCreate(idempotencyKey, create, out _);
+
+    public Payment GetOrCreate(string idempotencyKey, Func<Payment> create, out bool created)
     {
         lock (gate)
         {
             if (byIdempotencyKey.TryGetValue(idempotencyKey, out var existing))
             {
+                created = false;
                 return payments[existing];
             }
             var payment = create();
             payments[payment.Id] = payment;
             byIdempotencyKey[idempotencyKey] = payment.Id;
+            created = true;
             return payment;
         }
     }
@@ -43,6 +50,7 @@ public class PaymentStore
             if (payment?.Status == from)
             {
                 payment.Status = to;
+                Moved?.Invoke(payment);
             }
             return payment;
         }

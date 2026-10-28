@@ -1,0 +1,48 @@
+diff --git a/Kofi/HostRegistration.cs b/Kofi/HostRegistration.cs
+index f2ccda6..dfbacc3 100644
+--- a/Kofi/HostRegistration.cs
++++ b/Kofi/HostRegistration.cs
+@@ -1,6 +1,7 @@
+ using System.Globalization;
+ using System.Reflection;
+ using FluentValidation;
++using JasperFx.Core;
+ using Kofi.Auth;
+ using Kofi.Catalog.Application.Persistence;
+ using Kofi.Catalog.Infrastructure.Persistence;
+@@ -28,6 +29,7 @@ using OpenTelemetry.Trace;
+ using Scalar.AspNetCore;
+ using Wolverine;
+ using Wolverine.EntityFrameworkCore;
++using Wolverine.ErrorHandling;
+ using Wolverine.Postgresql;
+ 
+ namespace Kofi;
+@@ -129,6 +131,14 @@ public static class HostRegistration
+             opts.Durability.Mode = DurabilityMode.Solo;
+             // Storage for [Deduplicated]: ids a handler has already seen.
+             opts.Durability.MessageDeduplicationMode = MessageDeduplicationMode.CompareByString;
++
++            // A failing handler is tried again later, each time waiting twice
++            // as long; a passing outage heals on its own. After the last try
++            // the message waits in the dead letter queue for a person.
++            // Production would wait minutes, not seconds.
++            opts.OnAnyException()
++                .ScheduleRetry(1.Seconds(), 2.Seconds(), 4.Seconds())
++                .Then.MoveToErrorQueue();
+         });
+ 
+         return builder;
+diff --git a/README.md b/README.md
+index 5996385..46df249 100644
+--- a/README.md
++++ b/README.md
+@@ -30,6 +30,8 @@ Contracts. Commands and queries run on MediatR; every event, domain or
+ integration, is stored by Wolverine in the command's transaction and handed
+ to its handlers after the commit. Each handler runs on its own durable local
+ queue in its own transaction, so a crash or restart does not lose a message.
++A failing handler is retried after 1, 2 and 4 seconds; then the message moves
++to the dead letter queue (`wolverine.wolverine_dead_letters`).
+ Marketing issues the referral code on `SubscriptionActivatedIntegrationEvent`
+ and records a coupon use on `OrderPaidIntegrationEvent`. Catalog keeps its own
+ copy of running subscriptions per product and shows `ActiveSubscriptionCount`.

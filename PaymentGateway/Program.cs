@@ -7,10 +7,16 @@ using PaymentGateway;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<PaymentStore>();
 builder.Services.AddSingleton<SetupStore>();
+builder.Services.AddSingleton<WebhookSender>();
+builder.Services.AddHttpClient();
 builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 var app = builder.Build();
+
+// Every decision about a payment is announced to the shop by webhook.
+var webhooks = app.Services.GetRequiredService<WebhookSender>();
+app.Services.GetRequiredService<PaymentStore>().Moved += webhooks.Notify;
 
 // Created by the shop's server; the customer is then sent to RedirectUrl.
 app.MapPost("/payments", (CreatePaymentRequest request, PaymentStore store, HttpRequest http) =>
@@ -71,19 +77,33 @@ app.MapPost("/payments/{id:guid}/refund", (Guid id, PaymentStore store) =>
 // A saved card, charged server to server with no customer present.
 app.MapPost("/charges", async (ChargeRequest request, PaymentStore store) =>
 {
+    var decision = request.PaymentMethodToken == "tok_declined" ? PaymentStatus.Declined : PaymentStatus.Captured;
+    var delay = TimeSpan.FromSeconds(request.PaymentMethodToken == "tok_timeout" ? 30 : 1);
+
+    if (request.ConfirmBy == "webhook")
+    {
+        // The bank decides a moment later; the shop learns it by webhook.
+        var pending = store.GetOrCreate(request.IdempotencyKey, () => NewCharge(request, PaymentStatus.Created), out var isNew);
+        if (isNew)
+        {
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(delay);
+                store.Move(pending.Id, PaymentStatus.Created, decision);
+            });
+        }
+        return Results.Ok(pending);
+    }
+
     if (request.PaymentMethodToken == "tok_timeout")
     {
-        await Task.Delay(TimeSpan.FromSeconds(30));
+        await Task.Delay(delay);
     }
-    var payment = store.GetOrCreate(request.IdempotencyKey, () => new Payment
+    var payment = store.GetOrCreate(request.IdempotencyKey, () => NewCharge(request, decision), out var created);
+    if (created)
     {
-        Id = Guid.NewGuid(),
-        Amount = request.Amount,
-        Currency = request.Currency,
-        Reference = request.Reference,
-        CreatedAt = DateTime.UtcNow,
-        Status = request.PaymentMethodToken == "tok_declined" ? PaymentStatus.Declined : PaymentStatus.Captured,
-    });
+        webhooks.Notify(payment);
+    }
     return Results.Ok(payment);
 });
 
@@ -169,6 +189,16 @@ app.MapGet("/", (PaymentStore store) =>
 });
 
 app.Run();
+
+static Payment NewCharge(ChargeRequest request, PaymentStatus status) => new()
+{
+    Id = Guid.NewGuid(),
+    Amount = request.Amount,
+    Currency = request.Currency,
+    Reference = request.Reference,
+    CreatedAt = DateTime.UtcNow,
+    Status = status,
+};
 
 static IResult Decide(Guid id, PaymentStore store, PaymentStatus status)
 {

@@ -1,17 +1,16 @@
-<Project Sdk="Aspire.AppHost.Sdk/13.4.6">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Kofi\Kofi.csproj" />
-    <ProjectReference Include="..\PaymentGateway\PaymentGateway.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.4.6" />
-    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="13.4.6" />
-    <PackageReference Include="CommunityToolkit.Aspire.Hosting.MailPit" Version="13.4.0" />
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="17.0.0" />
+    <PackageReference Include="Aspire.Hosting.Dotnet" Version="17.0.0" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="17.0.0" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="17.0.0" />
+    <PackageReference Include="CommunityToolkit.Aspire.Hosting.MailPit" Version="17.0.0" />
   </ItemGroup>
 
   <PropertyGroup>
+    <!-- Aspire runs through its CLI; the build fetches the matching one with dnx. -->
+    <AspireCliInvocationMode>DnxPinned</AspireCliInvocationMode>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

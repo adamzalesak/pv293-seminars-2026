@@ -45,6 +45,7 @@ public static class ModuleRegistration
         app.MapOrderEndpoints();
         app.MapCustomerEndpoints();
         app.MapPaymentCardEndpoints();
+        app.MapPaymentWebhookEndpoints();
 
         return app;
     }

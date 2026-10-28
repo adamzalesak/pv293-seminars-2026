@@ -1,0 +1,1557 @@
+diff --git a/Kofi.Common/Services/IPaymentGatewayClient.cs b/Kofi.Common/Services/IPaymentGatewayClient.cs
+index d8d0c43..019a8e4 100644
+--- a/Kofi.Common/Services/IPaymentGatewayClient.cs
++++ b/Kofi.Common/Services/IPaymentGatewayClient.cs
+@@ -6,7 +6,8 @@ public interface IPaymentGatewayClient
+         decimal amount, string currency, string reference, string returnUrl, string idempotencyKey);
+ 
+     Task<(Guid PaymentId, PaymentStatus Status)> Charge(
+-        decimal amount, string currency, string reference, string paymentMethodToken, string idempotencyKey);
++        decimal amount, string currency, string reference, string paymentMethodToken, string idempotencyKey,
++        bool confirmByWebhook = false);
+ 
+     Task<PaymentStatus> CancelOrRefund(Guid paymentId);
+     Task<PaymentStatus> GetStatus(Guid paymentId);
+diff --git a/Kofi.Ordering.Contracts/CreateOrderRequest.cs b/Kofi.Ordering.Contracts/CreateOrderRequest.cs
+deleted file mode 100644
+index 2674524..0000000
+--- a/Kofi.Ordering.Contracts/CreateOrderRequest.cs
++++ /dev/null
+@@ -1,3 +0,0 @@
+-namespace Kofi.Ordering.Contracts;
+-
+-public record CreateOrderRequest(Guid CustomerId, IReadOnlyList<OrderLine> Lines);
+diff --git a/Kofi.Ordering.Contracts/CreateOrderResponse.cs b/Kofi.Ordering.Contracts/CreateOrderResponse.cs
+deleted file mode 100644
+index 0345879..0000000
+--- a/Kofi.Ordering.Contracts/CreateOrderResponse.cs
++++ /dev/null
+@@ -1,3 +0,0 @@
+-namespace Kofi.Ordering.Contracts;
+-
+-public record CreateOrderResponse(Guid OrderId);
+diff --git a/Kofi.Ordering.Contracts/IOrdering.cs b/Kofi.Ordering.Contracts/IOrdering.cs
+index 6065e7b..fed7167 100644
+--- a/Kofi.Ordering.Contracts/IOrdering.cs
++++ b/Kofi.Ordering.Contracts/IOrdering.cs
+@@ -2,7 +2,6 @@ namespace Kofi.Ordering.Contracts;
+ 
+ public interface IOrdering
+ {
+-    Task<CreateOrderResponse> CreateOrder(CreateOrderRequest request, CancellationToken ct = default);
+     Task<CustomerInfo?> GetCustomer(Guid id, CancellationToken ct = default);
+     Task<IReadOnlyDictionary<Guid, string>> GetCustomerNames(IReadOnlyList<Guid> ids, CancellationToken ct = default);
+     Task SavePaymentCard(Guid customerId, string token, string? label, CancellationToken ct = default);
+diff --git a/Kofi.Ordering.Contracts/OrderCancelledIntegrationEvent.cs b/Kofi.Ordering.Contracts/OrderCancelledIntegrationEvent.cs
+new file mode 100644
+index 0000000..6ab143b
+--- /dev/null
++++ b/Kofi.Ordering.Contracts/OrderCancelledIntegrationEvent.cs
+@@ -0,0 +1,6 @@
++using Kofi.Contracts;
++
++namespace Kofi.Ordering.Contracts;
++
++// DeliveryId is set when the order was for a subscription delivery.
++public record OrderCancelledIntegrationEvent(Guid OrderId, Guid? DeliveryId, string Reason) : IIntegrationEvent;
+diff --git a/Kofi.Ordering.Contracts/OrderFailedIntegrationEvent.cs b/Kofi.Ordering.Contracts/OrderFailedIntegrationEvent.cs
+new file mode 100644
+index 0000000..2c4ef06
+--- /dev/null
++++ b/Kofi.Ordering.Contracts/OrderFailedIntegrationEvent.cs
+@@ -0,0 +1,6 @@
++using Kofi.Contracts;
++
++namespace Kofi.Ordering.Contracts;
++
++// No order could be placed for a subscription delivery.
++public record OrderFailedIntegrationEvent(Guid DeliveryId, string Reason) : IIntegrationEvent;
+diff --git a/Kofi.Ordering.Contracts/OrderLine.cs b/Kofi.Ordering.Contracts/OrderLine.cs
+deleted file mode 100644
+index 62e532a..0000000
+--- a/Kofi.Ordering.Contracts/OrderLine.cs
++++ /dev/null
+@@ -1,3 +0,0 @@
+-namespace Kofi.Ordering.Contracts;
+-
+-public record OrderLine(Guid ProductId, string ProductName, int Quantity, decimal UnitPrice, string Currency);
+diff --git a/Kofi.Ordering.Contracts/OrderPaidIntegrationEvent.cs b/Kofi.Ordering.Contracts/OrderPaidIntegrationEvent.cs
+index 4324bc9..28c9f3f 100644
+--- a/Kofi.Ordering.Contracts/OrderPaidIntegrationEvent.cs
++++ b/Kofi.Ordering.Contracts/OrderPaidIntegrationEvent.cs
+@@ -2,4 +2,5 @@ using Kofi.Contracts;
+ 
+ namespace Kofi.Ordering.Contracts;
+ 
+-public record OrderPaidIntegrationEvent(Guid OrderId, Guid CustomerId, string? CouponCode) : IIntegrationEvent;
++// DeliveryId is set when the order fulfils a subscription delivery.
++public record OrderPaidIntegrationEvent(Guid OrderId, Guid CustomerId, string? CouponCode, Guid? DeliveryId) : IIntegrationEvent;
+diff --git a/Kofi.Ordering/Application/EventHandlers/OrderPaidPublisher.cs b/Kofi.Ordering/Application/EventHandlers/OrderPaidPublisher.cs
+index 668c0e6..23e1442 100644
+--- a/Kofi.Ordering/Application/EventHandlers/OrderPaidPublisher.cs
++++ b/Kofi.Ordering/Application/EventHandlers/OrderPaidPublisher.cs
+@@ -1,12 +1,18 @@
+ using Kofi.Common.Abstractions;
++using Kofi.Ordering.Application.Repositories;
+ using Kofi.Ordering.Contracts;
+ using Kofi.Ordering.Domain.Orders;
+ using Wolverine;
+ 
+ namespace Kofi.Ordering.Application.EventHandlers;
+ 
+-public class OrderPaidPublisher(IMessageBus bus) : IDomainEventHandler<OrderPaid>
++// The domain event says only that the order was paid; who paid, with which
++// coupon and for which delivery is added here, for the other modules.
++public class OrderPaidPublisher(IOrderRepository orders, IMessageBus bus) : IDomainEventHandler<OrderPaid>
+ {
+-    public Task Handle(OrderPaid paid, CancellationToken ct) =>
+-        bus.PublishAsync(new OrderPaidIntegrationEvent(paid.OrderId, paid.CustomerId, paid.CouponCode)).AsTask();
++    public async Task Handle(OrderPaid paid, CancellationToken ct)
++    {
++        var order = await orders.GetById(paid.OrderId) ?? throw new InvalidOperationException("A paid order is missing");
++        await bus.PublishAsync(new OrderPaidIntegrationEvent(order.Id, order.CustomerId, order.Coupon?.Code, order.DeliveryId));
++    }
+ }
+diff --git a/Kofi.Ordering/Application/OrderingModule.cs b/Kofi.Ordering/Application/OrderingModule.cs
+index ddf0c39..255f978 100644
+--- a/Kofi.Ordering/Application/OrderingModule.cs
++++ b/Kofi.Ordering/Application/OrderingModule.cs
+@@ -1,64 +1,13 @@
+-using Kofi.Catalog.Contracts;
+ using Kofi.Common.Abstractions;
+-using Kofi.Common.Services;
+ using Kofi.Ordering.Application.Persistence;
+ using Kofi.Ordering.Application.Repositories;
+-using Kofi.Ordering.Application.Services;
+ using Kofi.Ordering.Contracts;
+-using Kofi.Ordering.Domain.Orders;
+-using Kofi.Warehouse.Contracts;
+ using Microsoft.EntityFrameworkCore;
+ 
+ namespace Kofi.Ordering.Application;
+ 
+-public class OrderingModule(
+-    IOrderingDbContext db,
+-    IOrderRepository orders,
+-    ICustomerRepository customers,
+-    ICatalog catalog,
+-    IWarehouse stock,
+-    IPaymentGatewayClient payments,
+-    IPricingService pricing) : IOrdering
++public class OrderingModule(IOrderingDbContext db, ICustomerRepository customers) : IOrdering
+ {
+-    public async Task<CreateOrderResponse> CreateOrder(CreateOrderRequest request, CancellationToken ct = default)
+-    {
+-        var customer = await customers.GetById(request.CustomerId) ?? throw new NotFoundException("Customer not found");
+-
+-        foreach (var id in request.Lines.Select(l => l.ProductId).Distinct())
+-        {
+-            var product = await catalog.GetProduct(id, ct) ?? throw new NotFoundException("Product not found");
+-            if (!product.CanBeSold)
+-            {
+-                throw new DomainRuleException("A delivery product is no longer available");
+-            }
+-        }
+-
+-        var reservations = request.Lines.Select(l => new StockLine(l.ProductId, l.Quantity)).ToList();
+-        await stock.CheckAvailable(reservations, ct);
+-        var order = Order.Create(Guid.NewGuid(), customer.Id, customer.Name, customer.Email, customer.ShippingAddress, DateTime.Now,
+-            request.Lines.Select(l =>
+-                OrderItem.Create(l.ProductId, l.ProductName, new Quantity(l.Quantity), new Price(l.UnitPrice, l.Currency))));
+-
+-        if (customer.PaymentMethodToken == null)
+-        {
+-            throw new DomainRuleException("The customer has no saved card");
+-        }
+-
+-        var itemsTotal = pricing.CalculateItemsTotal(order.Items);
+-        var payment = await payments.Charge(Math.Round(itemsTotal + pricing.CalculateShipping(itemsTotal), 2), "EUR", order.Id.ToString(),
+-            customer.PaymentMethodToken, order.Id.ToString());
+-        if (payment.Status != PaymentStatus.Captured)
+-        {
+-            throw new DomainRuleException("The saved card was declined");
+-        }
+-
+-        order.RecordPayment(payment.PaymentId);
+-        await stock.Reserve(reservations, ct);
+-        orders.Add(order);
+-
+-        return new CreateOrderResponse(order.Id);
+-    }
+-
+     public Task<CustomerInfo?> GetCustomer(Guid id, CancellationToken ct = default) => db.Customers.AsNoTracking()
+         .Where(c => c.Id == id)
+         .Select(c => new CustomerInfo(c.Id, c.Name, c.Email.Value, c.PaymentMethodToken != null, c.PaymentCardLabel))
+diff --git a/Kofi.Ordering/Application/Payments/ChargeCard.cs b/Kofi.Ordering/Application/Payments/ChargeCard.cs
+new file mode 100644
+index 0000000..81140ac
+--- /dev/null
++++ b/Kofi.Ordering/Application/Payments/ChargeCard.cs
+@@ -0,0 +1,5 @@
++namespace Kofi.Ordering.Application.Payments;
++
++// Charge a saved card for an order. The idempotency key names the attempt, so
++// sending the same message again asks the provider for the same payment.
++public record ChargeCard(Guid OrderId, decimal Amount, string Currency, string PaymentMethodToken, string IdempotencyKey);
+diff --git a/Kofi.Ordering/Application/Payments/ChargeCardHandler.cs b/Kofi.Ordering/Application/Payments/ChargeCardHandler.cs
+new file mode 100644
+index 0000000..11a0453
+--- /dev/null
++++ b/Kofi.Ordering/Application/Payments/ChargeCardHandler.cs
+@@ -0,0 +1,15 @@
++using Kofi.Common.Services;
++using Wolverine.Attributes;
++
++namespace Kofi.Ordering.Application.Payments;
++
++// The call to the provider, outside any database transaction: nothing waits
++// for the bank while holding locks. If it fails, Wolverine tries again with
++// the same idempotency key. The result comes later, by webhook.
++[NonTransactional]
++public class ChargeCardHandler(IPaymentGatewayClient payments)
++{
++    public async Task Handle(ChargeCard charge, CancellationToken ct) =>
++        await payments.Charge(charge.Amount, charge.Currency, charge.OrderId.ToString(), charge.PaymentMethodToken,
++            charge.IdempotencyKey, confirmByWebhook: true);
++}
+diff --git a/Kofi.Ordering/Application/Payments/PaymentResultReceivedHandler.cs b/Kofi.Ordering/Application/Payments/PaymentResultReceivedHandler.cs
+index e4f2f3d..a8812b3 100644
+--- a/Kofi.Ordering/Application/Payments/PaymentResultReceivedHandler.cs
++++ b/Kofi.Ordering/Application/Payments/PaymentResultReceivedHandler.cs
+@@ -1,5 +1,6 @@
+ using Kofi.Common.Services;
+ using Kofi.Ordering.Application.Repositories;
++using Kofi.Ordering.Application.Sagas;
+ using Wolverine.Attributes;
+ 
+ namespace Kofi.Ordering.Application.Payments;
+@@ -10,20 +11,33 @@ namespace Kofi.Ordering.Application.Payments;
+ [Deduplicated]
+ public class PaymentResultReceivedHandler(IOrderRepository orders, IPaymentGatewayClient payments)
+ {
+-    public async Task Handle(PaymentResultReceived result, CancellationToken ct)
++    public async Task<DeliveryPaymentDecided?> Handle(PaymentResultReceived result, CancellationToken ct)
+     {
+         var order = await orders.GetById(result.OrderId);
+ 
+-        // A payment for an order the shop never saved, e.g. a declined
+-        // subscription charge: nothing to confirm.
+-        if (order == null || order.PaymentId != result.PaymentId)
++        // A payment for an order the shop never saved: nothing to confirm.
++        if (order == null)
+         {
+-            return;
++            return null;
++        }
++
++        // An order for a subscription delivery belongs to its saga, which
++        // decides what a result means.
++        if (order.DeliveryId is { } deliveryId)
++        {
++            return new DeliveryPaymentDecided(deliveryId, result.PaymentId, result.Status == nameof(PaymentStatus.Captured));
++        }
++
++        if (order.PaymentId != result.PaymentId)
++        {
++            return null;
+         }
+ 
+         if (order.AcceptPaymentResult(result.PaymentId, result.Status == nameof(PaymentStatus.Captured)))
+         {
+             await payments.CancelOrRefund(result.PaymentId);
+         }
++
++        return null;
+     }
+ }
+diff --git a/Kofi.Ordering/Application/Persistence/IOrderingDbContext.cs b/Kofi.Ordering/Application/Persistence/IOrderingDbContext.cs
+index 617a9a7..bb6e4d8 100644
+--- a/Kofi.Ordering/Application/Persistence/IOrderingDbContext.cs
++++ b/Kofi.Ordering/Application/Persistence/IOrderingDbContext.cs
+@@ -1,3 +1,4 @@
++using Kofi.Ordering.Application.Sagas;
+ using Kofi.Ordering.Domain.Customers;
+ using Kofi.Ordering.Domain.Orders;
+ using Microsoft.EntityFrameworkCore;
+@@ -8,4 +9,5 @@ public interface IOrderingDbContext
+ {
+     DbSet<Order> Orders { get; }
+     DbSet<Customer> Customers { get; }
++    DbSet<SubscriptionOrderSaga> SubscriptionOrders { get; }
+ }
+diff --git a/Kofi.Ordering/Application/Sagas/DeliveryPaymentDecided.cs b/Kofi.Ordering/Application/Sagas/DeliveryPaymentDecided.cs
+new file mode 100644
+index 0000000..8504fb6
+--- /dev/null
++++ b/Kofi.Ordering/Application/Sagas/DeliveryPaymentDecided.cs
+@@ -0,0 +1,5 @@
++namespace Kofi.Ordering.Application.Sagas;
++
++// The provider has decided about the payment for an order that fulfils a
++// subscription delivery.
++public record DeliveryPaymentDecided(Guid DeliveryId, Guid PaymentId, bool Captured);
+diff --git a/Kofi.Ordering/Application/Sagas/RetryPayment.cs b/Kofi.Ordering/Application/Sagas/RetryPayment.cs
+new file mode 100644
+index 0000000..446d32c
+--- /dev/null
++++ b/Kofi.Ordering/Application/Sagas/RetryPayment.cs
+@@ -0,0 +1,4 @@
++namespace Kofi.Ordering.Application.Sagas;
++
++// Sent by the saga to itself, a day after a declined payment.
++public record RetryPayment(Guid DeliveryId);
+diff --git a/Kofi.Ordering/Application/Sagas/SubscriptionOrderLine.cs b/Kofi.Ordering/Application/Sagas/SubscriptionOrderLine.cs
+new file mode 100644
+index 0000000..417c2e5
+--- /dev/null
++++ b/Kofi.Ordering/Application/Sagas/SubscriptionOrderLine.cs
+@@ -0,0 +1,3 @@
++namespace Kofi.Ordering.Application.Sagas;
++
++public record SubscriptionOrderLine(Guid ProductId, string ProductName, int Quantity, decimal UnitPrice, string Currency);
+diff --git a/Kofi.Ordering/Application/Sagas/SubscriptionOrderOptions.cs b/Kofi.Ordering/Application/Sagas/SubscriptionOrderOptions.cs
+new file mode 100644
+index 0000000..7fc8a6e
+--- /dev/null
++++ b/Kofi.Ordering/Application/Sagas/SubscriptionOrderOptions.cs
+@@ -0,0 +1,8 @@
++namespace Kofi.Ordering.Application.Sagas;
++
++// Section "Ordering" in appsettings.
++public class SubscriptionOrderOptions
++{
++    // How long the customer has to update a declined card before the next try.
++    public TimeSpan PaymentRetryAfter { get; init; } = TimeSpan.FromDays(1);
++}
+diff --git a/Kofi.Ordering/Application/Sagas/SubscriptionOrderSaga.cs b/Kofi.Ordering/Application/Sagas/SubscriptionOrderSaga.cs
+new file mode 100644
+index 0000000..a137349
+--- /dev/null
++++ b/Kofi.Ordering/Application/Sagas/SubscriptionOrderSaga.cs
+@@ -0,0 +1,167 @@
++using Kofi.Ordering.Application.Payments;
++using Kofi.Ordering.Application.Repositories;
++using Kofi.Ordering.Application.Services;
++using Kofi.Ordering.Contracts;
++using Kofi.Ordering.Domain.Orders;
++using Kofi.Subscriptions.Contracts;
++using Kofi.Warehouse.Contracts;
++using Microsoft.Extensions.Options;
++using Wolverine;
++using Wolverine.Persistence.Sagas;
++
++namespace Kofi.Ordering.Application.Sagas;
++
++// The order for one subscription delivery, from the moment the delivery is
++// due until it is paid or given up. The saga owns the state of this process:
++// Wolverine stores it after every step, in the same transaction as the step's
++// own changes and the messages it sends.
++//
++// ReservingStock ──StockUnavailable──▶ OrderFailed
++//   │ StockReserved: place the order, ChargeCard (the saved card, after the commit)
++// AwaitingPayment ──paid──▶ OrderPaid
++//   │ declined
++// Retrying: e-mail the customer, try again a day later (3 tries in all)
++//   │ declined for the third time
++// Compensating: cancel the order, release the stock ──StockReleased──▶ OrderCancelled
++public class SubscriptionOrderSaga : Saga
++{
++    public const int MaxPaymentAttempts = 3;
++
++    // The delivery's id: every message of the process carries it.
++    public Guid Id { get; set; }
++    public Guid CustomerId { get; set; }
++    public List<SubscriptionOrderLine> Lines { get; set; } = [];
++    public SubscriptionOrderStep Step { get; set; }
++    public Guid? OrderId { get; set; }
++    public int PaymentAttempts { get; set; }
++
++    public static (SubscriptionOrderSaga, ReserveStock) Start(DeliveryDueIntegrationEvent due)
++    {
++        var saga = new SubscriptionOrderSaga
++        {
++            Id = due.DeliveryId,
++            CustomerId = due.CustomerId,
++            Lines = due.Lines.Select(l => new SubscriptionOrderLine(l.ProductId, l.ProductName, l.Quantity, l.UnitPrice, l.Currency))
++                .ToList(),
++            Step = SubscriptionOrderStep.ReservingStock,
++        };
++
++        return (saga, new ReserveStock(due.DeliveryId, saga.Lines.Select(l => new StockLine(l.ProductId, l.Quantity)).ToList()));
++    }
++
++    public OrderFailedIntegrationEvent? Handle(
++        [SagaIdentityFrom(nameof(StockUnavailableIntegrationEvent.DeliveryId))] StockUnavailableIntegrationEvent unavailable)
++    {
++        if (Step != SubscriptionOrderStep.ReservingStock)
++        {
++            return null;
++        }
++
++        MarkCompleted();
++        return new OrderFailedIntegrationEvent(Id, unavailable.Reason);
++    }
++
++    // The goods are put aside, so the order can be placed and paid for. The
++    // amount is Ordering's to calculate, which is why the order comes first.
++    // The delivery's id names its order too: a step that runs again places
++    // the same order and asks for the same payment.
++    public async Task<ChargeCard?> Handle(
++        [SagaIdentityFrom(nameof(StockReservedIntegrationEvent.DeliveryId))] StockReservedIntegrationEvent reserved,
++        IOrderRepository orders, ICustomerRepository customers, IPricingService pricing)
++    {
++        if (Step != SubscriptionOrderStep.ReservingStock)
++        {
++            return null;
++        }
++
++        var customer = await customers.GetById(CustomerId) ?? throw new InvalidOperationException("Customer not found");
++        var order = Order.Create(Id, customer.Id, customer.Name, customer.Email, customer.ShippingAddress, DateTime.Now,
++            Lines.Select(l => OrderItem.Create(l.ProductId, l.ProductName, new Quantity(l.Quantity), new Price(l.UnitPrice, l.Currency))),
++            deliveryId: Id);
++        orders.Add(order);
++        OrderId = order.Id;
++
++        return await NextCharge(order, customers, pricing);
++    }
++
++    public async Task<object?> Handle([SagaIdentityFrom(nameof(DeliveryPaymentDecided.DeliveryId))] DeliveryPaymentDecided result,
++        IOrderRepository orders, IOrderEmailService email, IOptions<SubscriptionOrderOptions> options)
++    {
++        var order = await orders.GetById(OrderId!.Value) ?? throw new InvalidOperationException("Order not found");
++
++        // Attempts follow one another, so a result is for the attempt we wait
++        // for; one that arrives when we wait for nothing changes nothing.
++        if (Step != SubscriptionOrderStep.AwaitingPayment)
++        {
++            return null;
++        }
++
++        if (result.Captured)
++        {
++            // OrderPaid leaves with this step; Subscriptions marks the delivery Ready.
++            order.RecordPayment(result.PaymentId);
++            MarkCompleted();
++            return null;
++        }
++
++        if (PaymentAttempts < MaxPaymentAttempts)
++        {
++            Step = SubscriptionOrderStep.Retrying;
++            await email.SendPaymentDeclined(order);
++            return new RetryPayment(Id).DelayedFor(options.Value.PaymentRetryAfter);
++        }
++
++        // Nothing to roll back across modules: the reservation is undone by a
++        // new action, and the order is cancelled.
++        Step = SubscriptionOrderStep.Compensating;
++        order.Cancel();
++        return new ReleaseStock(Id);
++    }
++
++    // The customer may have changed the card meanwhile; the saved one is used.
++    public async Task<ChargeCard?> Handle([SagaIdentityFrom(nameof(RetryPayment.DeliveryId))] RetryPayment retry,
++        IOrderRepository orders, ICustomerRepository customers, IPricingService pricing)
++    {
++        if (Step != SubscriptionOrderStep.Retrying)
++        {
++            return null;
++        }
++
++        var order = await orders.GetById(OrderId!.Value) ?? throw new InvalidOperationException("Order not found");
++        return await NextCharge(order, customers, pricing);
++    }
++
++    public OrderCancelledIntegrationEvent? Handle(
++        [SagaIdentityFrom(nameof(StockReleasedIntegrationEvent.DeliveryId))] StockReleasedIntegrationEvent released)
++    {
++        if (Step != SubscriptionOrderStep.Compensating)
++        {
++            return null;
++        }
++
++        MarkCompleted();
++        return new OrderCancelledIntegrationEvent(OrderId!.Value, Id, "The payment was declined three times");
++    }
++
++    // Messages that reach a process already finished change nothing.
++    public static void NotFound(StockReservedIntegrationEvent reserved) { }
++    public static void NotFound(StockUnavailableIntegrationEvent unavailable) { }
++    public static void NotFound(DeliveryPaymentDecided result) { }
++    public static void NotFound(RetryPayment retry) { }
++    public static void NotFound(StockReleasedIntegrationEvent released) { }
++
++    // The saga only decides to charge; ChargeCard calls the provider after
++    // this step commits. Each attempt has its own idempotency key: the same
++    // attempt sent again is the same payment, a new attempt a new charge.
++    private async Task<ChargeCard> NextCharge(Order order, ICustomerRepository customers, IPricingService pricing)
++    {
++        var customer = await customers.GetById(CustomerId) ?? throw new InvalidOperationException("Customer not found");
++        var token = customer.PaymentMethodToken ?? throw new InvalidOperationException("The customer has no saved card");
++
++        PaymentAttempts++;
++        Step = SubscriptionOrderStep.AwaitingPayment;
++        var itemsTotal = pricing.CalculateItemsTotal(order.Items);
++        return new ChargeCard(order.Id, Math.Round(itemsTotal + pricing.CalculateShipping(itemsTotal), 2), "EUR", token,
++            $"{Id}/{PaymentAttempts}");
++    }
++}
+diff --git a/Kofi.Ordering/Application/Sagas/SubscriptionOrderStep.cs b/Kofi.Ordering/Application/Sagas/SubscriptionOrderStep.cs
+new file mode 100644
+index 0000000..2a880e1
+--- /dev/null
++++ b/Kofi.Ordering/Application/Sagas/SubscriptionOrderStep.cs
+@@ -0,0 +1,9 @@
++namespace Kofi.Ordering.Application.Sagas;
++
++public enum SubscriptionOrderStep
++{
++    ReservingStock,
++    AwaitingPayment,
++    Retrying,
++    Compensating,
++}
+diff --git a/Kofi.Ordering/Application/Services/IOrderEmailService.cs b/Kofi.Ordering/Application/Services/IOrderEmailService.cs
+index ffbff2b..23e0e81 100644
+--- a/Kofi.Ordering/Application/Services/IOrderEmailService.cs
++++ b/Kofi.Ordering/Application/Services/IOrderEmailService.cs
+@@ -7,4 +7,5 @@ public interface IOrderEmailService
+     Task SendOrderConfirmation(Order order);
+     Task SendOrderCancelled(Order order);
+     Task SendShippingNotification(Order order);
++    Task SendPaymentDeclined(Order order);
+ }
+diff --git a/Kofi.Ordering/Domain/Orders/Order.cs b/Kofi.Ordering/Domain/Orders/Order.cs
+index f744719..20a88e6 100644
+--- a/Kofi.Ordering/Domain/Orders/Order.cs
++++ b/Kofi.Ordering/Domain/Orders/Order.cs
+@@ -16,13 +16,17 @@ public class Order : AggregateRoot
+     public ShippingAddress ShippingAddress { get; private set; } = null!;
+     public DateTime CreatedAt { get; private set; }
+     public AppliedCoupon? Coupon { get; private set; }
++
++    // The subscription delivery this order fulfils; none for the web shop.
++    public Guid? DeliveryId { get; private set; }
+     public IReadOnlyList<OrderItem> Items => _items.AsReadOnly();
+ 
+     public static Order Create(Guid id, Guid customerId, string name, Email email, ShippingAddress address, DateTime now,
+-        IEnumerable<OrderItem> items, AppliedCoupon? coupon = null)
++        IEnumerable<OrderItem> items, AppliedCoupon? coupon = null, Guid? deliveryId = null)
+     {
+         var order = new Order
+         {
++            DeliveryId = deliveryId,
+             Id = id,
+             CustomerId = customerId,
+             CustomerName = name,
+@@ -99,7 +103,7 @@ public class Order : AggregateRoot
+         PaymentId = paymentId;
+         Status = OrderStatus.Paid;
+ 
+-        Raise(new OrderPaid(Id, CustomerId, Coupon?.Code));
++        Raise(new OrderPaid(Id, paymentId));
+     }
+ 
+     // The provider's word on a payment. Returns true when the money has to go
+diff --git a/Kofi.Ordering/Domain/Orders/OrderPaid.cs b/Kofi.Ordering/Domain/Orders/OrderPaid.cs
+index 6687b66..d88ba13 100644
+--- a/Kofi.Ordering/Domain/Orders/OrderPaid.cs
++++ b/Kofi.Ordering/Domain/Orders/OrderPaid.cs
+@@ -1,3 +1,3 @@
+ namespace Kofi.Ordering.Domain.Orders;
+ 
+-public record OrderPaid(Guid OrderId, Guid CustomerId, string? CouponCode) : IDomainEvent;
++public record OrderPaid(Guid OrderId, Guid PaymentId) : IDomainEvent;
+diff --git a/Kofi.Ordering/Infrastructure/Persistence/Configurations/SubscriptionOrderSagaConfiguration.cs b/Kofi.Ordering/Infrastructure/Persistence/Configurations/SubscriptionOrderSagaConfiguration.cs
+new file mode 100644
+index 0000000..978987b
+--- /dev/null
++++ b/Kofi.Ordering/Infrastructure/Persistence/Configurations/SubscriptionOrderSagaConfiguration.cs
+@@ -0,0 +1,19 @@
++using Kofi.Ordering.Application.Sagas;
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Metadata.Builders;
++
++namespace Kofi.Ordering.Infrastructure.Persistence.Configurations;
++
++// The saga's state lives in Ordering's schema, next to the orders it places.
++public class SubscriptionOrderSagaConfiguration : IEntityTypeConfiguration<SubscriptionOrderSaga>
++{
++    public void Configure(EntityTypeBuilder<SubscriptionOrderSaga> saga)
++    {
++        saga.ToTable("SubscriptionOrderSagas", "ordering");
++        saga.HasKey(s => s.Id);
++        saga.Property(s => s.Id).HasColumnName("DeliveryId").ValueGeneratedNever();
++        saga.Property(s => s.Step).HasConversion<string>();
++        saga.Property(s => s.Version).IsConcurrencyToken();
++        saga.OwnsMany(s => s.Lines, line => line.ToJson());
++    }
++}
+diff --git a/Kofi.Ordering/Infrastructure/Persistence/OrderingDbContext.cs b/Kofi.Ordering/Infrastructure/Persistence/OrderingDbContext.cs
+index cd08557..9bd7da0 100644
+--- a/Kofi.Ordering/Infrastructure/Persistence/OrderingDbContext.cs
++++ b/Kofi.Ordering/Infrastructure/Persistence/OrderingDbContext.cs
+@@ -1,5 +1,6 @@
+ using Kofi.Common.Persistence;
+ using Kofi.Ordering.Application.Persistence;
++using Kofi.Ordering.Application.Sagas;
+ using Kofi.Ordering.Domain.Customers;
+ using Kofi.Ordering.Domain.Orders;
+ using Microsoft.EntityFrameworkCore;
+@@ -10,6 +11,7 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Ag
+ {
+     public DbSet<Order> Orders => Set<Order>();
+     public DbSet<Customer> Customers => Set<Customer>();
++    public DbSet<SubscriptionOrderSaga> SubscriptionOrders => Set<SubscriptionOrderSaga>();
+ 
+     protected override void ConfigureModel(ModelBuilder modelBuilder) =>
+         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrderingDbContext).Assembly);
+diff --git a/Kofi.Ordering/Infrastructure/Services/OrderEmailService.cs b/Kofi.Ordering/Infrastructure/Services/OrderEmailService.cs
+index f2651b9..b76c8f3 100644
+--- a/Kofi.Ordering/Infrastructure/Services/OrderEmailService.cs
++++ b/Kofi.Ordering/Infrastructure/Services/OrderEmailService.cs
+@@ -34,6 +34,12 @@ public class OrderEmailService(IEmailTransport transport, IPricingService pricin
+             $"Your order {order.Id} was cancelled.");
+     }
+ 
++    public async Task SendPaymentDeclined(Order order)
++    {
++        await transport.Send(order.CustomerEmail.Value, $"We could not charge your card for order {order.Id}",
++            $"Your bank declined the payment for order {order.Id}. Please update your card; we will try again tomorrow.");
++    }
++
+     public async Task SendShippingNotification(Order order)
+     {
+         await transport.Send(order.CustomerEmail.Value, $"Order {order.Id} shipped",
+diff --git a/Kofi.Ordering/Kofi.Ordering.csproj b/Kofi.Ordering/Kofi.Ordering.csproj
+index 1c319c8..e8a269e 100644
+--- a/Kofi.Ordering/Kofi.Ordering.csproj
++++ b/Kofi.Ordering/Kofi.Ordering.csproj
+@@ -12,6 +12,7 @@
+     <ProjectReference Include="../Kofi.Ordering.Contracts/Kofi.Ordering.Contracts.csproj" />
+     <ProjectReference Include="../Kofi.Catalog.Contracts/Kofi.Catalog.Contracts.csproj" />
+     <ProjectReference Include="../Kofi.Warehouse.Contracts/Kofi.Warehouse.Contracts.csproj" />
++    <ProjectReference Include="../Kofi.Subscriptions.Contracts/Kofi.Subscriptions.Contracts.csproj" />
+     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+   </ItemGroup>
+ 
+diff --git a/Kofi.Ordering/ModuleRegistration.cs b/Kofi.Ordering/ModuleRegistration.cs
+index a383d8a..89ff48c 100644
+--- a/Kofi.Ordering/ModuleRegistration.cs
++++ b/Kofi.Ordering/ModuleRegistration.cs
+@@ -6,6 +6,7 @@ using Kofi.Ordering.API.Endpoints;
+ using Kofi.Ordering.Application;
+ using Kofi.Ordering.Application.Persistence;
+ using Kofi.Ordering.Application.Repositories;
++using Kofi.Ordering.Application.Sagas;
+ using Kofi.Ordering.Application.Services;
+ using Kofi.Ordering.Contracts;
+ using Kofi.Ordering.Infrastructure.Persistence;
+@@ -32,6 +33,7 @@ public static class ModuleRegistration
+         services.AddScoped<ICustomerRepository, CustomerRepository>();
+         services.AddScoped<IPricingService, PricingService>();
+         services.AddScoped<IOrderEmailService, OrderEmailService>();
++        services.AddOptions<SubscriptionOrderOptions>().BindConfiguration("Ordering");
+ 
+         services.AddValidatorsFromAssembly(typeof(ModuleRegistration).Assembly);
+ 
+diff --git a/Kofi.Subscriptions.Contracts/DeliveryDueIntegrationEvent.cs b/Kofi.Subscriptions.Contracts/DeliveryDueIntegrationEvent.cs
+new file mode 100644
+index 0000000..11c58cd
+--- /dev/null
++++ b/Kofi.Subscriptions.Contracts/DeliveryDueIntegrationEvent.cs
+@@ -0,0 +1,10 @@
++using Kofi.Contracts;
++
++namespace Kofi.Subscriptions.Contracts;
++
++// A subscription delivery is due, with the lines and prices agreed for it.
++// Subscriptions does not know who turns it into an order; it learns the
++// outcome from Ordering's events.
++public record DeliveryDueIntegrationEvent(
++    Guid DeliveryId, Guid SubscriptionId, Guid CustomerId, IReadOnlyList<DeliveryDueLine> Lines, DateTime DueAt)
++    : IIntegrationEvent;
+diff --git a/Kofi.Subscriptions.Contracts/DeliveryDueLine.cs b/Kofi.Subscriptions.Contracts/DeliveryDueLine.cs
+new file mode 100644
+index 0000000..e6df45a
+--- /dev/null
++++ b/Kofi.Subscriptions.Contracts/DeliveryDueLine.cs
+@@ -0,0 +1,3 @@
++namespace Kofi.Subscriptions.Contracts;
++
++public record DeliveryDueLine(Guid ProductId, string ProductName, int Quantity, decimal UnitPrice, string Currency);
+diff --git a/Kofi.Subscriptions.Contracts/README.md b/Kofi.Subscriptions.Contracts/README.md
+index 1cc8bc0..f379f4f 100644
+--- a/Kofi.Subscriptions.Contracts/README.md
++++ b/Kofi.Subscriptions.Contracts/README.md
+@@ -1,3 +1,3 @@
+ # Subscriptions contracts
+ 
+-Catalog and Marketing react to the integration events published here. This assembly contains only what its consumers need; it does not expose the domain.
++Catalog, Marketing and Ordering react to the integration events published here. This assembly contains only what its consumers need; it does not expose the domain.
+diff --git a/Kofi.Subscriptions.Tests/Subscriptions/DeliveryTests.cs b/Kofi.Subscriptions.Tests/Subscriptions/DeliveryTests.cs
+index c04f1f8..29447fc 100644
+--- a/Kofi.Subscriptions.Tests/Subscriptions/DeliveryTests.cs
++++ b/Kofi.Subscriptions.Tests/Subscriptions/DeliveryTests.cs
+@@ -41,16 +41,20 @@ public class DeliveryTests
+     }
+ 
+     [Fact]
+-    public void A_delivery_due_now_is_prepared_with_one_line_per_product()
++    public void A_due_delivery_is_announced_with_its_lines_and_waits_for_the_order()
+     {
+         var subscription = SubscriptionFactory.Incomplete();
+         subscription.Activate(SubscriptionFactory.Now);
++        subscription.ClearDomainEvents();
++        var first = subscription.Deliveries.Single();
+ 
+-        var prepared = subscription.PrepareIfDue(SubscriptionFactory.FirstOrderId, SubscriptionFactory.Now);
++        subscription.StartDelivery(first.Id, SubscriptionFactory.Now);
+ 
+-        Assert.NotNull(prepared);
+-        Assert.Equal(SubscriptionFactory.FirstOrderId, prepared.OrderId);
+-        var line = Assert.Single(prepared.Lines);
++        Assert.Equal(DeliveryStatus.Processing, first.Status);
++        Assert.Single(subscription.Deliveries);
++        var due = Assert.IsType<DeliveryDue>(Assert.Single(subscription.DomainEvents));
++        Assert.Equal(first.Id, due.DeliveryId);
++        var line = Assert.Single(due.Lines);
+         Assert.Equal(SubscriptionFactory.ProductId, line.ProductId);
+         Assert.Equal(new Quantity(2), line.Quantity);
+         Assert.Equal(new Price(12.50m, "EUR"), line.UnitPrice);
+@@ -62,10 +66,60 @@ public class DeliveryTests
+         var subscription = SubscriptionFactory.Incomplete(SubscriptionFactory.Now.Date.AddDays(5));
+         subscription.Activate(SubscriptionFactory.Now);
+ 
+-        Assert.Null(subscription.PrepareIfDue(Guid.NewGuid(), SubscriptionFactory.Now));
++        Assert.Throws<DomainRuleException>(() => subscription.StartDelivery(subscription.Deliveries.Single().Id, SubscriptionFactory.Now));
+         Assert.Equal(DeliveryStatus.Scheduled, subscription.Deliveries.Single().Status);
+     }
+ 
++    [Fact]
++    public void A_paid_order_completes_the_delivery_once_and_plans_the_next()
++    {
++        var subscription = SubscriptionFactory.Incomplete();
++        subscription.Activate(SubscriptionFactory.Now);
++        var first = subscription.Deliveries.Single();
++        subscription.StartDelivery(first.Id, SubscriptionFactory.Now);
++
++        subscription.CompleteDelivery(first.Id, SubscriptionFactory.FirstOrderId);
++        subscription.CompleteDelivery(first.Id, SubscriptionFactory.FirstOrderId);
++
++        Assert.Equal(DeliveryStatus.Ready, first.Status);
++        Assert.Equal(SubscriptionFactory.FirstOrderId, first.OrderId);
++        Assert.Equal(2, subscription.Deliveries.Count);
++        Assert.Equal(SubscriptionFactory.Now.Date.AddDays(21), SubscriptionFactory.NextScheduled(subscription).ScheduledFor);
++    }
++
++    [Fact]
++    public void A_failed_order_skips_the_delivery_once_and_plans_the_next()
++    {
++        var subscription = SubscriptionFactory.Incomplete();
++        subscription.Activate(SubscriptionFactory.Now);
++        var first = subscription.Deliveries.Single();
++        subscription.StartDelivery(first.Id, SubscriptionFactory.Now);
++
++        subscription.ClearDomainEvents();
++        subscription.SkipFailedDelivery(first.Id, null, "Not enough stock");
++        subscription.SkipFailedDelivery(first.Id, null, "Not enough stock");
++
++        Assert.IsType<DeliverySkipped>(Assert.Single(subscription.DomainEvents));
++        Assert.Equal(DeliveryStatus.Skipped, first.Status);
++        Assert.Equal(2, subscription.Deliveries.Count);
++        Assert.Equal(SubscriptionFactory.Now.Date.AddDays(21), SubscriptionFactory.NextScheduled(subscription).ScheduledFor);
++    }
++
++    [Fact]
++    public void A_cancelled_subscription_plans_nothing_after_its_last_delivery()
++    {
++        var subscription = SubscriptionFactory.Incomplete();
++        subscription.Activate(SubscriptionFactory.Now);
++        var first = subscription.Deliveries.Single();
++        subscription.StartDelivery(first.Id, SubscriptionFactory.Now);
++        subscription.Cancel(SubscriptionFactory.Now);
++
++        subscription.CompleteDelivery(first.Id, SubscriptionFactory.FirstOrderId);
++
++        Assert.Equal(DeliveryStatus.Ready, first.Status);
++        Assert.Single(subscription.Deliveries);
++    }
++
+     [Fact]
+     public void A_first_day_that_passed_before_activation_becomes_today()
+     {
+diff --git a/Kofi.Subscriptions.Tests/Subscriptions/SubscriptionFactory.cs b/Kofi.Subscriptions.Tests/Subscriptions/SubscriptionFactory.cs
+index 684e855..791c572 100644
+--- a/Kofi.Subscriptions.Tests/Subscriptions/SubscriptionFactory.cs
++++ b/Kofi.Subscriptions.Tests/Subscriptions/SubscriptionFactory.cs
+@@ -51,4 +51,11 @@ internal static class SubscriptionFactory
+ 
+     public static DateTime Later() =>
+         Now.AddDays(32);
++
++    // A delivery that was due and whose order has been paid, in one step.
++    public static void PrepareDelivery(this Subscription subscription, Guid deliveryId, Guid orderId, DateTime now)
++    {
++        subscription.StartDelivery(deliveryId, now);
++        subscription.CompleteDelivery(deliveryId, orderId);
++    }
+ }
+diff --git a/Kofi.Subscriptions/Application/EventHandlers/CompleteDeliveryOnOrderPaid.cs b/Kofi.Subscriptions/Application/EventHandlers/CompleteDeliveryOnOrderPaid.cs
+new file mode 100644
+index 0000000..e5f379c
+--- /dev/null
++++ b/Kofi.Subscriptions/Application/EventHandlers/CompleteDeliveryOnOrderPaid.cs
+@@ -0,0 +1,21 @@
++using Kofi.Common.Abstractions;
++using Kofi.Ordering.Contracts;
++using Kofi.Subscriptions.Application.Persistence;
++using Microsoft.EntityFrameworkCore;
++
++namespace Kofi.Subscriptions.Application.EventHandlers;
++
++public class CompleteDeliveryOnOrderPaid(ISubscriptionsDbContext db) : IIntegrationEventHandler<OrderPaidIntegrationEvent>
++{
++    public async Task Handle(OrderPaidIntegrationEvent paid, CancellationToken ct)
++    {
++        // An order from the web shop has no delivery.
++        if (paid.DeliveryId is not { } deliveryId)
++        {
++            return;
++        }
++
++        var subscription = await db.Subscriptions.SingleAsync(s => s.Deliveries.Any(d => d.Id == deliveryId), ct);
++        subscription.CompleteDelivery(deliveryId, paid.OrderId);
++    }
++}
+diff --git a/Kofi.Subscriptions/Application/EventHandlers/DeliveryDuePublisher.cs b/Kofi.Subscriptions/Application/EventHandlers/DeliveryDuePublisher.cs
+new file mode 100644
+index 0000000..add5b5a
+--- /dev/null
++++ b/Kofi.Subscriptions/Application/EventHandlers/DeliveryDuePublisher.cs
+@@ -0,0 +1,14 @@
++using Kofi.Common.Abstractions;
++using Kofi.Subscriptions.Contracts;
++using Kofi.Subscriptions.Domain.Subscriptions;
++using Wolverine;
++
++namespace Kofi.Subscriptions.Application.EventHandlers;
++
++public class DeliveryDuePublisher(IMessageBus bus) : IDomainEventHandler<DeliveryDue>
++{
++    public Task Handle(DeliveryDue due, CancellationToken ct) =>
++        bus.PublishAsync(new DeliveryDueIntegrationEvent(due.DeliveryId, due.SubscriptionId, due.CustomerId,
++            due.Lines.Select(l => new DeliveryDueLine(l.ProductId, l.ProductName, l.Quantity.Value, l.UnitPrice.Amount,
++                l.UnitPrice.Currency)).ToList(), due.DueAt)).AsTask();
++}
+diff --git a/Kofi.Subscriptions/Application/EventHandlers/SendEmailOnDeliverySkipped.cs b/Kofi.Subscriptions/Application/EventHandlers/SendEmailOnDeliverySkipped.cs
+new file mode 100644
+index 0000000..4a41661
+--- /dev/null
++++ b/Kofi.Subscriptions/Application/EventHandlers/SendEmailOnDeliverySkipped.cs
+@@ -0,0 +1,23 @@
++using Kofi.Common.Abstractions;
++using Kofi.Common.Services;
++using Kofi.Ordering.Contracts;
++using Kofi.Subscriptions.Application.Persistence;
++using Kofi.Subscriptions.Domain.Subscriptions;
++using Microsoft.EntityFrameworkCore;
++using Wolverine.Attributes;
++
++namespace Kofi.Subscriptions.Application.EventHandlers;
++
++// Reads and sends; it reaches two modules' data, so no transaction of its own.
++[NonTransactional]
++public class SendEmailOnDeliverySkipped(ISubscriptionsDbContext db, IOrdering ordering, IEmailTransport email)
++    : IDomainEventHandler<DeliverySkipped>
++{
++    public async Task Handle(DeliverySkipped skipped, CancellationToken ct)
++    {
++        var customerId = await db.Subscriptions.Where(s => s.Id == skipped.SubscriptionId).Select(s => s.CustomerId).SingleAsync(ct);
++        var customer = await ordering.GetCustomer(customerId, ct) ?? throw new NotFoundException("Customer not found");
++        await email.Send(customer.Email, "Your coffee delivery is skipped",
++            $"We could not prepare your delivery: {skipped.Reason}. The next one comes as planned.");
++    }
++}
+diff --git a/Kofi.Subscriptions/Application/EventHandlers/SkipDeliveryOnOrderFailure.cs b/Kofi.Subscriptions/Application/EventHandlers/SkipDeliveryOnOrderFailure.cs
+new file mode 100644
+index 0000000..e85255d
+--- /dev/null
++++ b/Kofi.Subscriptions/Application/EventHandlers/SkipDeliveryOnOrderFailure.cs
+@@ -0,0 +1,26 @@
++using Kofi.Common.Abstractions;
++using Kofi.Ordering.Contracts;
++using Kofi.Subscriptions.Application.Persistence;
++using Microsoft.EntityFrameworkCore;
++
++namespace Kofi.Subscriptions.Application.EventHandlers;
++
++// Not a compensation: Subscriptions decides what a failed order means for the
++// subscription. The delivery is skipped and the next one comes as planned.
++public class SkipDeliveryOnOrderFailure(ISubscriptionsDbContext db)
++    : IIntegrationEventHandler<OrderFailedIntegrationEvent>, IIntegrationEventHandler<OrderCancelledIntegrationEvent>
++{
++    public Task Handle(OrderFailedIntegrationEvent failed, CancellationToken ct) =>
++        Skip(failed.DeliveryId, null, failed.Reason, ct);
++
++    public Task Handle(OrderCancelledIntegrationEvent cancelled, CancellationToken ct) =>
++        cancelled.DeliveryId is { } deliveryId
++            ? Skip(deliveryId, cancelled.OrderId, cancelled.Reason, ct)
++            : Task.CompletedTask;
++
++    private async Task Skip(Guid deliveryId, Guid? orderId, string reason, CancellationToken ct)
++    {
++        var subscription = await db.Subscriptions.SingleAsync(s => s.Deliveries.Any(d => d.Id == deliveryId), ct);
++        subscription.SkipFailedDelivery(deliveryId, orderId, reason);
++    }
++}
+diff --git a/Kofi.Subscriptions/Application/Features/Subscriptions/ActivateSubscription/ActivateSubscriptionHandler.cs b/Kofi.Subscriptions/Application/Features/Subscriptions/ActivateSubscription/ActivateSubscriptionHandler.cs
+index bd65fae..5f78974 100644
+--- a/Kofi.Subscriptions/Application/Features/Subscriptions/ActivateSubscription/ActivateSubscriptionHandler.cs
++++ b/Kofi.Subscriptions/Application/Features/Subscriptions/ActivateSubscription/ActivateSubscriptionHandler.cs
+@@ -11,7 +11,7 @@ public class ActivateSubscriptionHandler(
+     ISubscriptionRepository subscriptions,
+     IOrdering ordering,
+     IPaymentGatewayClient payments,
+-    ISubscriptionOrderService orders) : ICommandHandler<ActivateSubscriptionCommand, ActivateSubscriptionResponse>
++    IDeliveryProducts products) : ICommandHandler<ActivateSubscriptionCommand, ActivateSubscriptionResponse>
+ {
+     public async Task<ActivateSubscriptionResponse> Handle(ActivateSubscriptionCommand command, CancellationToken ct)
+     {
+@@ -53,7 +53,8 @@ public class ActivateSubscriptionHandler(
+ 
+         if (subscription.Deliveries.FirstOrDefault(d => d.Status == DeliveryStatus.Scheduled && d.ScheduledFor <= now) is { } due)
+         {
+-            await orders.Prepare(subscription, due.Id, now, ct);
++            await products.EnsureOnSale(due, ct);
++            subscription.StartDelivery(due.Id, now);
+         }
+ 
+         return Result(subscription, card);
+diff --git a/Kofi.Subscriptions/Application/Features/Subscriptions/PrepareDelivery/PrepareDeliveryHandler.cs b/Kofi.Subscriptions/Application/Features/Subscriptions/PrepareDelivery/PrepareDeliveryHandler.cs
+index afe1fc4..9a35241 100644
+--- a/Kofi.Subscriptions/Application/Features/Subscriptions/PrepareDelivery/PrepareDeliveryHandler.cs
++++ b/Kofi.Subscriptions/Application/Features/Subscriptions/PrepareDelivery/PrepareDeliveryHandler.cs
+@@ -4,14 +4,19 @@ using Kofi.Subscriptions.Application.Services;
+ 
+ namespace Kofi.Subscriptions.Application.Features.Subscriptions.PrepareDelivery;
+ 
+-public class PrepareDeliveryHandler(ISubscriptionRepository subscriptions, ISubscriptionOrderService orders)
++// The delivery is announced as due; whoever fulfils it reports back by event.
++public class PrepareDeliveryHandler(ISubscriptionRepository subscriptions, IDeliveryProducts products)
+     : ICommandHandler<PrepareDeliveryCommand>
+ {
+     public async Task Handle(PrepareDeliveryCommand command, CancellationToken ct)
+     {
+         var subscription = await subscriptions.GetById(command.SubscriptionId) ?? throw new NotFoundException("Subscription not found");
+ 
+-        var now = DateTime.Now;
+-        await orders.Prepare(subscription, command.DeliveryId, now, ct);
++        if (subscription.Deliveries.SingleOrDefault(d => d.Id == command.DeliveryId) is { } delivery)
++        {
++            await products.EnsureOnSale(delivery, ct);
++        }
++
++        subscription.StartDelivery(command.DeliveryId, DateTime.Now);
+     }
+ }
+diff --git a/Kofi.Subscriptions/Application/Features/Subscriptions/ProcessDueDeliveries/DueDeliveryProcessor.cs b/Kofi.Subscriptions/Application/Features/Subscriptions/ProcessDueDeliveries/DueDeliveryProcessor.cs
+index f090dd7..92e9913 100644
+--- a/Kofi.Subscriptions/Application/Features/Subscriptions/ProcessDueDeliveries/DueDeliveryProcessor.cs
++++ b/Kofi.Subscriptions/Application/Features/Subscriptions/ProcessDueDeliveries/DueDeliveryProcessor.cs
+@@ -11,7 +11,7 @@ namespace Kofi.Subscriptions.Application.Features.Subscriptions.ProcessDueDelive
+ // What the daily recurring message (PrepareDueDeliveries) runs. Every due delivery goes
+ // through the same PrepareDeliveryCommand as a manual /prepare, each in its
+ // own scope: its own DbContext, its own transaction. A delivery that is turned
+-// down (no stock, a product gone) stays Scheduled for the next run and does
++// down (a product gone) stays Scheduled for the next run and does
+ // not stop the others. Every due delivery is tried once per run, oldest first:
+ // a batch limit would let the same failing ones crowd out the rest forever.
+ public class DueDeliveryProcessor(ISubscriptionsDbContext db, IServiceScopeFactory scopes)
+diff --git a/Kofi.Subscriptions/Application/Services/DeliveryProducts.cs b/Kofi.Subscriptions/Application/Services/DeliveryProducts.cs
+new file mode 100644
+index 0000000..eb84300
+--- /dev/null
++++ b/Kofi.Subscriptions/Application/Services/DeliveryProducts.cs
+@@ -0,0 +1,20 @@
++using Kofi.Catalog.Contracts;
++using Kofi.Common.Abstractions;
++using Kofi.Subscriptions.Domain.Subscriptions;
++
++namespace Kofi.Subscriptions.Application.Services;
++
++public class DeliveryProducts(ICatalog catalog) : IDeliveryProducts
++{
++    public async Task EnsureOnSale(Delivery delivery, CancellationToken ct)
++    {
++        foreach (var id in delivery.Extras.Select(e => e.ProductId).Prepend(delivery.ProductId).Distinct())
++        {
++            var product = await catalog.GetProduct(id, ct) ?? throw new NotFoundException("Product not found");
++            if (!product.CanBeSold)
++            {
++                throw new DomainRuleException("A delivery product is no longer available");
++            }
++        }
++    }
++}
+diff --git a/Kofi.Subscriptions/Application/Services/IDeliveryProducts.cs b/Kofi.Subscriptions/Application/Services/IDeliveryProducts.cs
+new file mode 100644
+index 0000000..6665c7a
+--- /dev/null
++++ b/Kofi.Subscriptions/Application/Services/IDeliveryProducts.cs
+@@ -0,0 +1,10 @@
++using Kofi.Subscriptions.Domain.Subscriptions;
++
++namespace Kofi.Subscriptions.Application.Services;
++
++public interface IDeliveryProducts
++{
++    // Part of the decision to prepare a delivery, so it is checked in the
++    // command: every product in it must still be on sale.
++    Task EnsureOnSale(Delivery delivery, CancellationToken ct);
++}
+diff --git a/Kofi.Subscriptions/Application/Services/ISubscriptionOrderService.cs b/Kofi.Subscriptions/Application/Services/ISubscriptionOrderService.cs
+deleted file mode 100644
+index b6efb63..0000000
+--- a/Kofi.Subscriptions/Application/Services/ISubscriptionOrderService.cs
++++ /dev/null
+@@ -1,8 +0,0 @@
+-using Kofi.Subscriptions.Domain.Subscriptions;
+-
+-namespace Kofi.Subscriptions.Application.Services;
+-
+-public interface ISubscriptionOrderService
+-{
+-    Task Prepare(Subscription subscription, Guid deliveryId, DateTime now, CancellationToken ct);
+-}
+diff --git a/Kofi.Subscriptions/Application/Services/SubscriptionOrderService.cs b/Kofi.Subscriptions/Application/Services/SubscriptionOrderService.cs
+deleted file mode 100644
+index 533da56..0000000
+--- a/Kofi.Subscriptions/Application/Services/SubscriptionOrderService.cs
++++ /dev/null
+@@ -1,16 +0,0 @@
+-using Kofi.Ordering.Contracts;
+-using Kofi.Subscriptions.Domain.Subscriptions;
+-
+-namespace Kofi.Subscriptions.Application.Services;
+-
+-public class SubscriptionOrderService(IOrdering ordering) : ISubscriptionOrderService
+-{
+-    public async Task Prepare(Subscription subscription, Guid deliveryId, DateTime now, CancellationToken ct)
+-    {
+-        var lines = subscription.LinesToPrepare(deliveryId, now);
+-        var order = await ordering.CreateOrder(new CreateOrderRequest(subscription.CustomerId,
+-            lines.Select(l => new OrderLine(l.ProductId, l.ProductName, l.Quantity.Value, l.UnitPrice.Amount, l.UnitPrice.Currency))
+-                .ToList()), ct);
+-        subscription.PrepareDelivery(deliveryId, order.OrderId, now);
+-    }
+-}
+diff --git a/Kofi.Subscriptions/Domain/Subscriptions/Delivery.cs b/Kofi.Subscriptions/Domain/Subscriptions/Delivery.cs
+index ed7605b..cdd2eb7 100644
+--- a/Kofi.Subscriptions/Domain/Subscriptions/Delivery.cs
++++ b/Kofi.Subscriptions/Domain/Subscriptions/Delivery.cs
+@@ -36,15 +36,31 @@ public class Delivery
+ 
+     internal bool IsScheduled => Status == DeliveryStatus.Scheduled;
+ 
+-    // An order has been placed for this delivery; from now on it is being
+-    // fulfilled and the plan no longer moves it.
+-    internal void Prepare(Guid orderId)
++    // The delivery is due and announced; from now on the plan no longer moves it.
++    internal void StartProcessing()
+     {
+         RejectUnless(IsScheduled, "Only a scheduled delivery can be prepared.");
++        Status = DeliveryStatus.Processing;
++    }
++
++    internal bool IsProcessing => Status == DeliveryStatus.Processing;
++
++    // Its order is paid.
++    internal void Complete(Guid orderId)
++    {
++        RejectUnless(IsProcessing, "Only a delivery being processed can be completed.");
+         Status = DeliveryStatus.Ready;
+         OrderId = orderId;
+     }
+ 
++    // No order came of it: out of stock, or the payment never went through.
++    internal void Fail(Guid? orderId)
++    {
++        RejectUnless(IsProcessing, "Only a delivery being processed can fail.");
++        Status = DeliveryStatus.Skipped;
++        OrderId = orderId;
++    }
++
+     internal void Skip()
+     {
+         RejectUnless(IsScheduled, "Only a scheduled delivery can be skipped.");
+diff --git a/Kofi.Subscriptions/Domain/Subscriptions/DeliveryDue.cs b/Kofi.Subscriptions/Domain/Subscriptions/DeliveryDue.cs
+new file mode 100644
+index 0000000..4aaacf6
+--- /dev/null
++++ b/Kofi.Subscriptions/Domain/Subscriptions/DeliveryDue.cs
+@@ -0,0 +1,5 @@
++namespace Kofi.Subscriptions.Domain.Subscriptions;
++
++// A delivery is due, with the lines and prices agreed for it.
++public record DeliveryDue(Guid SubscriptionId, Guid DeliveryId, Guid CustomerId, IReadOnlyList<DeliveryLine> Lines, DateTime DueAt)
++    : IDomainEvent;
+diff --git a/Kofi.Subscriptions/Domain/Subscriptions/DeliverySkipped.cs b/Kofi.Subscriptions/Domain/Subscriptions/DeliverySkipped.cs
+new file mode 100644
+index 0000000..346c1b5
+--- /dev/null
++++ b/Kofi.Subscriptions/Domain/Subscriptions/DeliverySkipped.cs
+@@ -0,0 +1,4 @@
++namespace Kofi.Subscriptions.Domain.Subscriptions;
++
++// No order came of a delivery; the customer is told why.
++public record DeliverySkipped(Guid SubscriptionId, Guid DeliveryId, string Reason) : IDomainEvent;
+diff --git a/Kofi.Subscriptions/Domain/Subscriptions/DeliveryStatus.cs b/Kofi.Subscriptions/Domain/Subscriptions/DeliveryStatus.cs
+index 96156c5..27f1908 100644
+--- a/Kofi.Subscriptions/Domain/Subscriptions/DeliveryStatus.cs
++++ b/Kofi.Subscriptions/Domain/Subscriptions/DeliveryStatus.cs
+@@ -3,6 +3,8 @@ namespace Kofi.Subscriptions.Domain.Subscriptions;
+ public enum DeliveryStatus
+ {
+     Scheduled,
++    // Due and announced; the order for it is on its way.
++    Processing,
+     Ready,
+     Skipped,
+     Cancelled,
+diff --git a/Kofi.Subscriptions/Domain/Subscriptions/PreparedDelivery.cs b/Kofi.Subscriptions/Domain/Subscriptions/PreparedDelivery.cs
+deleted file mode 100644
+index d3bdb6f..0000000
+--- a/Kofi.Subscriptions/Domain/Subscriptions/PreparedDelivery.cs
++++ /dev/null
+@@ -1,5 +0,0 @@
+-namespace Kofi.Subscriptions.Domain.Subscriptions;
+-
+-// A delivery that has just been prepared, as the order placed for it needs to
+-// see it. The subscription composes it; whoever places the order only copies it.
+-public record PreparedDelivery(Guid OrderId, IReadOnlyList<DeliveryLine> Lines);
+diff --git a/Kofi.Subscriptions/Domain/Subscriptions/Subscription.cs b/Kofi.Subscriptions/Domain/Subscriptions/Subscription.cs
+index e934101..45feb36 100644
+--- a/Kofi.Subscriptions/Domain/Subscriptions/Subscription.cs
++++ b/Kofi.Subscriptions/Domain/Subscriptions/Subscription.cs
+@@ -164,41 +164,64 @@ public class Subscription : AggregateRoot
+         EditableDelivery(deliveryId).RemoveExtra(productId);
+     }
+ 
+-    public IReadOnlyList<DeliveryLine> LinesToPrepare(Guid deliveryId, DateTime now)
++    // The delivery is due: it is announced with everything an order needs,
++    // and waits as Processing for the outcome.
++    public void StartDelivery(Guid deliveryId, DateTime now)
+     {
+         RejectUnless(Status == SubscriptionStatus.Active, "Only an active subscription can prepare a delivery.");
+         var delivery = EditableDelivery(deliveryId);
+         RejectUnless(delivery.ScheduledFor <= now, "This delivery is not due yet.");
++        delivery.StartProcessing();
+ 
+-        return new[] { new DeliveryLine(delivery.ProductId, Plan.ProductName, delivery.Quantity, delivery.UnitPrice) }
+-            .Concat(delivery.Extras.Select(e => new DeliveryLine(e.ProductId, e.ProductName, e.Quantity, e.UnitPrice)))
+-            .ToList();
++        var lines = new List<DeliveryLine> { new(delivery.ProductId, Plan.ProductName, delivery.Quantity, delivery.UnitPrice) };
++        lines.AddRange(delivery.Extras.Select(e => new DeliveryLine(e.ProductId, e.ProductName, e.Quantity, e.UnitPrice)));
++
++        Raise(new DeliveryDue(Id, deliveryId, CustomerId, lines, now));
+     }
+ 
+-    public PreparedDelivery PrepareDelivery(Guid deliveryId, Guid orderId, DateTime now)
++    // The order for the delivery is paid. Hearing it again changes nothing.
++    public void CompleteDelivery(Guid deliveryId, Guid orderId)
+     {
+-        RejectUnless(Status == SubscriptionStatus.Active, "Only an active subscription can prepare a delivery.");
+-        var delivery = EditableDelivery(deliveryId);
+-        RejectUnless(delivery.ScheduledFor <= now, "This delivery is not due yet.");
+-        delivery.Prepare(orderId);
+-        Schedule(delivery.ScheduledFor.AddDays(Plan.IntervalDays));
++        var delivery = DeliveryOf(deliveryId);
++        if (delivery.Status == DeliveryStatus.Ready && delivery.OrderId == orderId)
++        {
++            return;
++        }
+ 
+-        var lines = new List<DeliveryLine> { new(delivery.ProductId, Plan.ProductName, delivery.Quantity, delivery.UnitPrice) };
+-        lines.AddRange(delivery.Extras.Select(e => new DeliveryLine(e.ProductId, e.ProductName, e.Quantity, e.UnitPrice)));
++        delivery.Complete(orderId);
++        ScheduleNextAfter(delivery);
++    }
+ 
+-        return new PreparedDelivery(orderId, lines);
++    // No order came of the delivery. A business decision, not a rollback: the
++    // delivery is skipped and the next one comes as planned. Hearing it again
++    // changes nothing.
++    public void SkipFailedDelivery(Guid deliveryId, Guid? orderId, string reason)
++    {
++        var delivery = DeliveryOf(deliveryId);
++        if (delivery.Status == DeliveryStatus.Skipped)
++        {
++            return;
++        }
++
++        delivery.Fail(orderId);
++        ScheduleNextAfter(delivery);
++        Raise(new DeliverySkipped(Id, deliveryId, reason));
+     }
+ 
+-    // A delivery wanted for today, or a day already gone, goes out at once
+-    // instead of waiting for the next daily run.
+-    public PreparedDelivery? PrepareIfDue(Guid orderId, DateTime now)
++    private void ScheduleNextAfter(Delivery delivery)
+     {
+-        var next = NextScheduled();
+-        return next != null && next.ScheduledFor <= now
+-            ? PrepareDelivery(next.Id, orderId, now)
+-            : null;
++        // A cancelled subscription plans nothing more, and one resumed while
++        // this delivery was processing already has its next one.
++        if (Status != SubscriptionStatus.Cancelled && NextScheduled() == null)
++        {
++            Schedule(delivery.ScheduledFor.AddDays(Plan.IntervalDays));
++        }
+     }
+ 
++    private Delivery DeliveryOf(Guid deliveryId) =>
++        _deliveries.SingleOrDefault(d => d.Id == deliveryId)
++        ?? throw new DomainRuleException("This subscription has no such delivery.");
++
+     private Delivery EditableDelivery(Guid deliveryId)
+     {
+         RejectUnless(Status is SubscriptionStatus.Active or SubscriptionStatus.Paused,
+diff --git a/Kofi.Subscriptions/Infrastructure/Persistence/SubscriptionDemoData.cs b/Kofi.Subscriptions/Infrastructure/Persistence/SubscriptionDemoData.cs
+index c925045..de4ac57 100644
+--- a/Kofi.Subscriptions/Infrastructure/Persistence/SubscriptionDemoData.cs
++++ b/Kofi.Subscriptions/Infrastructure/Persistence/SubscriptionDemoData.cs
+@@ -37,8 +37,9 @@ internal static class SubscriptionDemoData
+ 
+         foreach (var order in orders)
+         {
+-            subscription.PrepareDelivery(subscription.Deliveries.Single(d => d.Status == DeliveryStatus.Scheduled).Id,
+-                order.OrderId, now.AddDays(-order.DaysAgo));
++            var delivery = subscription.Deliveries.Single(d => d.Status == DeliveryStatus.Scheduled).Id;
++            subscription.StartDelivery(delivery, now.AddDays(-order.DaysAgo));
++            subscription.CompleteDelivery(delivery, order.OrderId);
+         }
+ 
+         return subscription;
+diff --git a/Kofi.Subscriptions/ModuleRegistration.cs b/Kofi.Subscriptions/ModuleRegistration.cs
+index c0bac0b..ec08ffa 100644
+--- a/Kofi.Subscriptions/ModuleRegistration.cs
++++ b/Kofi.Subscriptions/ModuleRegistration.cs
+@@ -28,8 +28,8 @@ public static class ModuleRegistration
+         services.AddScoped<AggregateDbContext>(sp => sp.GetRequiredService<SubscriptionsDbContext>());
+ 
+         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+-        services.AddScoped<ISubscriptionOrderService, SubscriptionOrderService>();
+         services.AddScoped<DueDeliveryProcessor>();
++        services.AddScoped<IDeliveryProducts, DeliveryProducts>();
+ 
+         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(SubscriptionOwnershipBehavior<,>));
+         services.AddValidatorsFromAssembly(typeof(ModuleRegistration).Assembly);
+diff --git a/Kofi.Warehouse.Contracts/ReleaseStock.cs b/Kofi.Warehouse.Contracts/ReleaseStock.cs
+new file mode 100644
+index 0000000..f471c38
+--- /dev/null
++++ b/Kofi.Warehouse.Contracts/ReleaseStock.cs
+@@ -0,0 +1,5 @@
++namespace Kofi.Warehouse.Contracts;
++
++// Give back what was reserved for a delivery. Asking twice gives back once;
++// the answer is StockReleasedIntegrationEvent.
++public record ReleaseStock(Guid DeliveryId);
+diff --git a/Kofi.Warehouse.Contracts/ReserveStock.cs b/Kofi.Warehouse.Contracts/ReserveStock.cs
+new file mode 100644
+index 0000000..b2b750f
+--- /dev/null
++++ b/Kofi.Warehouse.Contracts/ReserveStock.cs
+@@ -0,0 +1,5 @@
++namespace Kofi.Warehouse.Contracts;
++
++// Ordering asks for the goods of one delivery; the answer is
++// StockReservedIntegrationEvent or StockUnavailableIntegrationEvent.
++public record ReserveStock(Guid DeliveryId, IReadOnlyList<StockLine> Lines);
+diff --git a/Kofi.Warehouse.Contracts/StockReleasedIntegrationEvent.cs b/Kofi.Warehouse.Contracts/StockReleasedIntegrationEvent.cs
+new file mode 100644
+index 0000000..9be8f24
+--- /dev/null
++++ b/Kofi.Warehouse.Contracts/StockReleasedIntegrationEvent.cs
+@@ -0,0 +1,5 @@
++using Kofi.Contracts;
++
++namespace Kofi.Warehouse.Contracts;
++
++public record StockReleasedIntegrationEvent(Guid DeliveryId) : IIntegrationEvent;
+diff --git a/Kofi.Warehouse.Contracts/StockReservedIntegrationEvent.cs b/Kofi.Warehouse.Contracts/StockReservedIntegrationEvent.cs
+new file mode 100644
+index 0000000..907057d
+--- /dev/null
++++ b/Kofi.Warehouse.Contracts/StockReservedIntegrationEvent.cs
+@@ -0,0 +1,5 @@
++using Kofi.Contracts;
++
++namespace Kofi.Warehouse.Contracts;
++
++public record StockReservedIntegrationEvent(Guid DeliveryId) : IIntegrationEvent;
+diff --git a/Kofi.Warehouse.Contracts/StockUnavailableIntegrationEvent.cs b/Kofi.Warehouse.Contracts/StockUnavailableIntegrationEvent.cs
+new file mode 100644
+index 0000000..35ba791
+--- /dev/null
++++ b/Kofi.Warehouse.Contracts/StockUnavailableIntegrationEvent.cs
+@@ -0,0 +1,5 @@
++using Kofi.Contracts;
++
++namespace Kofi.Warehouse.Contracts;
++
++public record StockUnavailableIntegrationEvent(Guid DeliveryId, string Reason) : IIntegrationEvent;
+diff --git a/Kofi.Warehouse/Application/Persistence/IWarehouseDbContext.cs b/Kofi.Warehouse/Application/Persistence/IWarehouseDbContext.cs
+index 87b20b1..e91a483 100644
+--- a/Kofi.Warehouse/Application/Persistence/IWarehouseDbContext.cs
++++ b/Kofi.Warehouse/Application/Persistence/IWarehouseDbContext.cs
+@@ -1,4 +1,5 @@
+ using Kofi.Warehouse.Domain.Products;
++using Kofi.Warehouse.Domain.Reservations;
+ using Microsoft.EntityFrameworkCore;
+ 
+ namespace Kofi.Warehouse.Application.Persistence;
+@@ -6,4 +7,5 @@ namespace Kofi.Warehouse.Application.Persistence;
+ public interface IWarehouseDbContext
+ {
+     DbSet<Product> Products { get; }
++    DbSet<StockReservation> Reservations { get; }
+ }
+diff --git a/Kofi.Warehouse/Application/Reservations/ReleaseStockHandler.cs b/Kofi.Warehouse/Application/Reservations/ReleaseStockHandler.cs
+new file mode 100644
+index 0000000..ba64455
+--- /dev/null
++++ b/Kofi.Warehouse/Application/Reservations/ReleaseStockHandler.cs
+@@ -0,0 +1,23 @@
++using Kofi.Warehouse.Application.Persistence;
++using Kofi.Warehouse.Contracts;
++using Microsoft.EntityFrameworkCore;
++
++namespace Kofi.Warehouse.Application.Reservations;
++
++// The compensating action for ReserveStock: a new step that puts the goods
++// back, not an undo of the old one.
++public class ReleaseStockHandler(IWarehouseDbContext db)
++{
++    public async Task<StockReleasedIntegrationEvent> Handle(ReleaseStock command, CancellationToken ct)
++    {
++        var reservation = await db.Reservations.FirstOrDefaultAsync(r => r.Id == command.DeliveryId, ct);
++
++        foreach (var line in reservation?.Release() ?? [])
++        {
++            var product = await db.Products.SingleAsync(p => p.Id == line.ProductId, ct);
++            product.Release(new Quantity(line.Quantity));
++        }
++
++        return new StockReleasedIntegrationEvent(command.DeliveryId);
++    }
++}
+diff --git a/Kofi.Warehouse/Application/Reservations/ReserveStockHandler.cs b/Kofi.Warehouse/Application/Reservations/ReserveStockHandler.cs
+new file mode 100644
+index 0000000..e240b2d
+--- /dev/null
++++ b/Kofi.Warehouse/Application/Reservations/ReserveStockHandler.cs
+@@ -0,0 +1,39 @@
++using Kofi.Warehouse.Application.Persistence;
++using Kofi.Warehouse.Contracts;
++using Kofi.Warehouse.Domain.Reservations;
++using Microsoft.EntityFrameworkCore;
++
++namespace Kofi.Warehouse.Application.Reservations;
++
++// All lines or nothing. The answer is returned and Wolverine sends it in the
++// same transaction as the reservation.
++public class ReserveStockHandler(IWarehouseDbContext db)
++{
++    public async Task<object> Handle(ReserveStock command, CancellationToken ct)
++    {
++        // The same request again gets the same answer.
++        if (await db.Reservations.AnyAsync(r => r.Id == command.DeliveryId, ct))
++        {
++            return new StockReservedIntegrationEvent(command.DeliveryId);
++        }
++
++        var lines = command.Lines.GroupBy(l => l.ProductId)
++            .Select(g => new ReservedLine(g.Key, new Quantity(g.Sum(l => l.Quantity)).Value))
++            .ToList();
++        var ids = lines.Select(l => l.ProductId).ToList();
++        var products = await db.Products.Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, ct);
++
++        if (lines.Any(l => !products.TryGetValue(l.ProductId, out var product) || product.StockQuantity < l.Quantity))
++        {
++            return new StockUnavailableIntegrationEvent(command.DeliveryId, "Not enough stock");
++        }
++
++        foreach (var line in lines)
++        {
++            products[line.ProductId].Reserve(new Quantity(line.Quantity));
++        }
++
++        db.Reservations.Add(StockReservation.Create(command.DeliveryId, lines));
++        return new StockReservedIntegrationEvent(command.DeliveryId);
++    }
++}
+diff --git a/Kofi.Warehouse/Domain/Reservations/ReservedLine.cs b/Kofi.Warehouse/Domain/Reservations/ReservedLine.cs
+new file mode 100644
+index 0000000..a7eed40
+--- /dev/null
++++ b/Kofi.Warehouse/Domain/Reservations/ReservedLine.cs
+@@ -0,0 +1,3 @@
++namespace Kofi.Warehouse.Domain.Reservations;
++
++public record ReservedLine(Guid ProductId, int Quantity);
+diff --git a/Kofi.Warehouse/Domain/Reservations/StockReservation.cs b/Kofi.Warehouse/Domain/Reservations/StockReservation.cs
+new file mode 100644
+index 0000000..26bb706
+--- /dev/null
++++ b/Kofi.Warehouse/Domain/Reservations/StockReservation.cs
+@@ -0,0 +1,35 @@
++namespace Kofi.Warehouse.Domain.Reservations;
++
++// The goods put aside for one subscription delivery, kept so that giving
++// them back happens exactly once.
++public class StockReservation : AggregateRoot
++{
++    private readonly List<ReservedLine> _lines = new();
++
++    private StockReservation()
++    {
++    }
++
++    public Guid DeliveryId => Id;
++    public bool IsReleased { get; private set; }
++    public IReadOnlyList<ReservedLine> Lines => _lines.AsReadOnly();
++
++    public static StockReservation Create(Guid deliveryId, IEnumerable<ReservedLine> lines)
++    {
++        var reservation = new StockReservation { Id = deliveryId };
++        reservation._lines.AddRange(lines);
++        return reservation;
++    }
++
++    // Returns the lines to put back, or none when they were already put back.
++    public IReadOnlyList<ReservedLine> Release()
++    {
++        if (IsReleased)
++        {
++            return [];
++        }
++
++        IsReleased = true;
++        return Lines;
++    }
++}
+diff --git a/Kofi.Warehouse/Infrastructure/Persistence/Configurations/StockReservationConfiguration.cs b/Kofi.Warehouse/Infrastructure/Persistence/Configurations/StockReservationConfiguration.cs
+new file mode 100644
+index 0000000..2004745
+--- /dev/null
++++ b/Kofi.Warehouse/Infrastructure/Persistence/Configurations/StockReservationConfiguration.cs
+@@ -0,0 +1,25 @@
++using Kofi.Warehouse.Domain.Reservations;
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Metadata.Builders;
++
++namespace Kofi.Warehouse.Infrastructure.Persistence.Configurations;
++
++public class StockReservationConfiguration : IEntityTypeConfiguration<StockReservation>
++{
++    public void Configure(EntityTypeBuilder<StockReservation> reservation)
++    {
++        reservation.ToTable("StockReservations", "warehouse");
++        reservation.HasKey(r => r.Id);
++        reservation.Property(r => r.Id).HasColumnName("DeliveryId").ValueGeneratedNever();
++        reservation.Ignore(r => r.DeliveryId);
++        reservation.Ignore(r => r.DomainEvents);
++        reservation.OwnsMany(r => r.Lines, line =>
++        {
++            line.ToTable("StockReservationLines", "warehouse");
++            line.WithOwner().HasForeignKey("DeliveryId");
++            line.Property<int>("Id");
++            line.HasKey("Id");
++        });
++        reservation.Navigation(r => r.Lines).UsePropertyAccessMode(PropertyAccessMode.Field);
++    }
++}
+diff --git a/Kofi.Warehouse/Infrastructure/Persistence/WarehouseDbContext.cs b/Kofi.Warehouse/Infrastructure/Persistence/WarehouseDbContext.cs
+index 2cdbd81..d86ebf0 100644
+--- a/Kofi.Warehouse/Infrastructure/Persistence/WarehouseDbContext.cs
++++ b/Kofi.Warehouse/Infrastructure/Persistence/WarehouseDbContext.cs
+@@ -1,6 +1,7 @@
+ using Kofi.Common.Persistence;
+ using Kofi.Warehouse.Application.Persistence;
+ using Kofi.Warehouse.Domain.Products;
++using Kofi.Warehouse.Domain.Reservations;
+ using Microsoft.EntityFrameworkCore;
+ 
+ namespace Kofi.Warehouse.Infrastructure.Persistence;
+@@ -8,6 +9,7 @@ namespace Kofi.Warehouse.Infrastructure.Persistence;
+ public class WarehouseDbContext(DbContextOptions<WarehouseDbContext> options) : AggregateDbContext(options), IWarehouseDbContext
+ {
+     public DbSet<Product> Products => Set<Product>();
++    public DbSet<StockReservation> Reservations => Set<StockReservation>();
+ 
+     protected override void ConfigureModel(ModelBuilder modelBuilder) =>
+         modelBuilder.ApplyConfigurationsFromAssembly(typeof(WarehouseDbContext).Assembly);
+diff --git a/Kofi/Services/PaymentGatewayClient.cs b/Kofi/Services/PaymentGatewayClient.cs
+index a6fabad..628cefd 100644
+--- a/Kofi/Services/PaymentGatewayClient.cs
++++ b/Kofi/Services/PaymentGatewayClient.cs
+@@ -28,7 +28,8 @@ public class PaymentGatewayClient(HttpClient http) : IPaymentGatewayClient
+     // A saved card, charged with no customer present. Like CreatePayment, the
+     // key names one attempt: a new attempt for the same order needs a new key.
+     public async Task<(Guid PaymentId, PaymentStatus Status)> Charge(
+-        decimal amount, string currency, string reference, string paymentMethodToken, string idempotencyKey)
++        decimal amount, string currency, string reference, string paymentMethodToken, string idempotencyKey,
++        bool confirmByWebhook = false)
+     {
+         var response = await http.PostAsJsonAsync("/charges", new
+         {
+@@ -37,6 +38,8 @@ public class PaymentGatewayClient(HttpClient http) : IPaymentGatewayClient
+             reference,
+             paymentMethodToken,
+             idempotencyKey,
++            // The result then comes by webhook; the answer only says the charge is pending.
++            confirmBy = confirmByWebhook ? "webhook" : null,
+         });
+         response.EnsureSuccessStatusCode();
+         var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+diff --git a/Kofi/appsettings.json b/Kofi/appsettings.json
+index aabe932..b75e849 100644
+--- a/Kofi/appsettings.json
++++ b/Kofi/appsettings.json
+@@ -9,6 +9,9 @@
+   "PaymentGateway": {
+     "WebhookSecret": "kofi-sandbox-webhook-secret"
+   },
++  "Ordering": {
++    "PaymentRetryAfter": "1.00:00:00"
++  },
+   "Subscriptions": {
+     "DueDeliveriesCron": "0 6 * * *"
+   },
+diff --git a/README.md b/README.md
+index 570b683..b80354f 100644
+--- a/README.md
++++ b/README.md
+@@ -37,6 +37,18 @@ Due deliveries are prepared by a Wolverine recurring message,
+ `PrepareDueDeliveries`, on the cron schedule in
+ `Subscriptions:DueDeliveriesCron` (daily at 6:00; every minute in
+ Development). `POST /subscriptions/process-due` runs the same by hand.
++
++A due delivery becomes `Processing` and Subscriptions publishes
++`DeliveryDueIntegrationEvent`. `SubscriptionOrderSaga` in Ordering, keyed by
++the delivery id, reserves the stock in Warehouse (`ReserveStock`), places the
++order and charges the saved card; the result comes by webhook. A declined
++card is retried after `Ordering:PaymentRetryAfter` (a day), three tries in
++all, and the customer is asked to update it. After the third decline the saga
++cancels the order and releases the stock (`ReleaseStock`). Subscriptions
++reacts to `OrderPaidIntegrationEvent` (delivery `Ready`) and to
++`OrderFailedIntegrationEvent` or `OrderCancelledIntegrationEvent` (delivery
++`Skipped`, e-mail); either way the next delivery is planned. Web checkout
++does not use the saga.
+ Marketing issues the referral code on `SubscriptionActivatedIntegrationEvent`
+ and records a coupon use on `OrderPaidIntegrationEvent`. Catalog keeps its own
+ copy of running subscriptions per product and shows `ActiveSubscriptionCount`.

@@ -31,6 +31,16 @@ Marketing issues the referral code on `SubscriptionActivatedIntegrationEvent`
 and records a coupon use on `OrderPaidIntegrationEvent`. Catalog keeps its own
 copy of running subscriptions per product and shows `ActiveSubscriptionCount`.
 
+The payment provider calls `POST /payments/webhook` after every decision
+about a payment, signed with HMAC-SHA256 (`X-Signature`) and retried until
+it gets a 2xx answer. The webhook is the source of truth for the payment;
+the customer's redirect back to the shop only shows the result sooner. Both
+confirm the payment idempotently, by the order's state.
+
+The `Demo` section in `Kofi/appsettings.json` slows down the referral coupon
+handler (`MarketingDelayMs`) and makes the popularity handler in Catalog fail
+(`PopularityFails`). Both are off by default.
+
 New catalog products start Draft. `/activate` makes them Active,
 `/discontinue` allows sell-through and existing deliveries but no new
 subscriptions, and `/deactivate` makes them Inactive. ProductInfo exposes
@@ -54,6 +64,12 @@ Install .NET 10 SDK, Docker and Node.js/pnpm, then run:
 ```sh
 dotnet run --project Kofi.AppHost
 ```
+
+Aspire 17 runs the app through the Aspire CLI. The first build fetches the
+matching CLI with `dnx`, which comes with the .NET 10 SDK. If `dnx` is not on
+your PATH (the .NET SDK from Homebrew), add the SDK directory to PATH, e.g.
+`export PATH="$(brew --prefix dotnet)/libexec:$PATH"`, or install the CLI
+from https://get.aspire.dev.
 
 Aspire starts PostgreSQL, the external payment-provider stand-in, MailPit,
 the API and the web client. Local development uses HTTP. The provider is
@@ -112,3 +128,24 @@ new-subscription eligibility. The frontend supports sell-through, filters
 subscription choices and validates the ShippingAddress input rules.
 
 Host-level technical coordination lives in Kofi/Host under namespace Kofi.Host.
+
+## Seminar 7 patches
+
+The six seminar steps are in `patches/`. In the `seminar-7` start
+checkout, apply them in order from the repository root. Run the commands
+one at a time during the exercise so you can inspect each change. These
+`git apply` commands work in Git Bash, PowerShell and Command Prompt.
+
+```text
+git apply patches/01-events-on-Wolverine-after-commit.patch
+git apply patches/02-outbox.patch
+git apply patches/03-duplicates.patch
+git apply patches/04-retry.patch
+git apply patches/05-recurring.patch
+git apply patches/06-saga.patch
+```
+
+Each patch builds on the previous one and updates this README. To inspect
+the current changes after any step, run `git diff --stat`. The commands
+do not create commits. The `seminar-7-solution` state already contains
+the result, so apply the patches only to `seminar-7`.

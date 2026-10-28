@@ -4,6 +4,7 @@ using FluentValidation;
 using Kofi.Auth;
 using Kofi.Common.Behaviors;
 using Kofi.Common.Bootstrap;
+using Kofi.Common.Demo;
 using Kofi.Common.Services;
 using Kofi.Host;
 using Kofi.Services;
@@ -22,6 +23,7 @@ public static class HostRegistration
 
         services.AddScoped(_ => new NpgsqlConnection(builder.Configuration.GetConnectionString("kofidb")));
         services.AddScoped<ModuleUnitOfWork>();
+        services.Configure<DemoOptions>(builder.Configuration.GetSection("Demo"));
 
         services.AddScoped<IEmailTransport, EmailTransport>();
         services.AddScoped<IAuditService, AuditService>();
@@ -30,6 +32,7 @@ public static class HostRegistration
         services.AddScoped<ICurrentUser, HttpCurrentUser>();
 
         services.AddHttpClient<IPaymentGatewayClient, PaymentGatewayClient>(c => c.BaseAddress = new Uri("https+http://payments"));
+        services.AddSingleton<IPaymentWebhookVerifier, PaymentWebhookVerifier>();
 
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
 
