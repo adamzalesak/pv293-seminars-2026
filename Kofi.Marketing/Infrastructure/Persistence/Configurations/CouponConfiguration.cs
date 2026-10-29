@@ -21,6 +21,8 @@ public class CouponConfiguration : IEntityTypeConfiguration<Coupon>
         coupon.OwnsOne(c => c.Discount, discount => discount.Property(d => d.Percent).HasColumnName("DiscountPercent"));
         coupon.Navigation(c => c.Discount).IsRequired();
         coupon.Property(c => c.Reason).HasConversion<string>();
+        // One referral code per subscription, even when the event arrives twice at once.
+        coupon.HasIndex(c => c.SubscriptionId).IsUnique().HasFilter("\"SubscriptionId\" IS NOT NULL");
         coupon.OwnsMany(c => c.Uses, use =>
         {
             use.ToTable("CouponUses", "marketing");

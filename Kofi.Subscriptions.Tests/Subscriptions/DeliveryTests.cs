@@ -41,16 +41,20 @@ public class DeliveryTests
     }
 
     [Fact]
-    public void A_delivery_due_now_is_prepared_with_one_line_per_product()
+    public void A_due_delivery_is_announced_with_its_lines_and_waits_for_the_order()
     {
         var subscription = SubscriptionFactory.Incomplete();
         subscription.Activate(SubscriptionFactory.Now);
+        subscription.ClearDomainEvents();
+        var first = subscription.Deliveries.Single();
 
-        var prepared = subscription.PrepareIfDue(SubscriptionFactory.FirstOrderId, SubscriptionFactory.Now);
+        subscription.StartDelivery(first.Id, SubscriptionFactory.Now);
 
-        Assert.NotNull(prepared);
-        Assert.Equal(SubscriptionFactory.FirstOrderId, prepared.OrderId);
-        var line = Assert.Single(prepared.Lines);
+        Assert.Equal(DeliveryStatus.Processing, first.Status);
+        Assert.Single(subscription.Deliveries);
+        var due = Assert.IsType<DeliveryDue>(Assert.Single(subscription.DomainEvents));
+        Assert.Equal(first.Id, due.DeliveryId);
+        var line = Assert.Single(due.Lines);
         Assert.Equal(SubscriptionFactory.ProductId, line.ProductId);
         Assert.Equal(new Quantity(2), line.Quantity);
         Assert.Equal(new Price(12.50m, "EUR"), line.UnitPrice);
@@ -62,8 +66,58 @@ public class DeliveryTests
         var subscription = SubscriptionFactory.Incomplete(SubscriptionFactory.Now.Date.AddDays(5));
         subscription.Activate(SubscriptionFactory.Now);
 
-        Assert.Null(subscription.PrepareIfDue(Guid.NewGuid(), SubscriptionFactory.Now));
+        Assert.Throws<DomainRuleException>(() => subscription.StartDelivery(subscription.Deliveries.Single().Id, SubscriptionFactory.Now));
         Assert.Equal(DeliveryStatus.Scheduled, subscription.Deliveries.Single().Status);
+    }
+
+    [Fact]
+    public void A_paid_order_completes_the_delivery_once_and_plans_the_next()
+    {
+        var subscription = SubscriptionFactory.Incomplete();
+        subscription.Activate(SubscriptionFactory.Now);
+        var first = subscription.Deliveries.Single();
+        subscription.StartDelivery(first.Id, SubscriptionFactory.Now);
+
+        subscription.CompleteDelivery(first.Id, SubscriptionFactory.FirstOrderId);
+        subscription.CompleteDelivery(first.Id, SubscriptionFactory.FirstOrderId);
+
+        Assert.Equal(DeliveryStatus.Ready, first.Status);
+        Assert.Equal(SubscriptionFactory.FirstOrderId, first.OrderId);
+        Assert.Equal(2, subscription.Deliveries.Count);
+        Assert.Equal(SubscriptionFactory.Now.Date.AddDays(21), SubscriptionFactory.NextScheduled(subscription).ScheduledFor);
+    }
+
+    [Fact]
+    public void A_failed_order_skips_the_delivery_once_and_plans_the_next()
+    {
+        var subscription = SubscriptionFactory.Incomplete();
+        subscription.Activate(SubscriptionFactory.Now);
+        var first = subscription.Deliveries.Single();
+        subscription.StartDelivery(first.Id, SubscriptionFactory.Now);
+
+        subscription.ClearDomainEvents();
+        subscription.SkipFailedDelivery(first.Id, null, "Not enough stock");
+        subscription.SkipFailedDelivery(first.Id, null, "Not enough stock");
+
+        Assert.IsType<DeliverySkipped>(Assert.Single(subscription.DomainEvents));
+        Assert.Equal(DeliveryStatus.Skipped, first.Status);
+        Assert.Equal(2, subscription.Deliveries.Count);
+        Assert.Equal(SubscriptionFactory.Now.Date.AddDays(21), SubscriptionFactory.NextScheduled(subscription).ScheduledFor);
+    }
+
+    [Fact]
+    public void A_cancelled_subscription_plans_nothing_after_its_last_delivery()
+    {
+        var subscription = SubscriptionFactory.Incomplete();
+        subscription.Activate(SubscriptionFactory.Now);
+        var first = subscription.Deliveries.Single();
+        subscription.StartDelivery(first.Id, SubscriptionFactory.Now);
+        subscription.Cancel(SubscriptionFactory.Now);
+
+        subscription.CompleteDelivery(first.Id, SubscriptionFactory.FirstOrderId);
+
+        Assert.Equal(DeliveryStatus.Ready, first.Status);
+        Assert.Single(subscription.Deliveries);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using Kofi.Common.Demo;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Kofi.Common.Abstractions;
 using Kofi.Marketing.Application.Persistence;
@@ -13,6 +14,14 @@ public class IssueReferralCouponOnSubscriptionActivated(IMarketingDbContext db, 
     public async Task Handle(SubscriptionActivatedIntegrationEvent activated, CancellationToken ct)
     {
         await Task.Delay(demo.Value.MarketingDelayMs, ct);
-        db.Coupons.Add(Coupon.IssueReferral(ReferralCode.Generate(), activated.CustomerId, activated.ActivatedAt));
+
+        // The same event may arrive again: one referral code per subscription.
+        if (await db.Coupons.AnyAsync(c => c.SubscriptionId == activated.SubscriptionId, ct))
+        {
+            return;
+        }
+
+        db.Coupons.Add(Coupon.IssueReferral(ReferralCode.Generate(), activated.CustomerId, activated.SubscriptionId,
+            activated.ActivatedAt));
     }
 }

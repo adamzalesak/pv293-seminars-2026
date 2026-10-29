@@ -6,6 +6,7 @@ using Kofi.Ordering.API.Endpoints;
 using Kofi.Ordering.Application;
 using Kofi.Ordering.Application.Persistence;
 using Kofi.Ordering.Application.Repositories;
+using Kofi.Ordering.Application.Sagas;
 using Kofi.Ordering.Application.Services;
 using Kofi.Ordering.Contracts;
 using Kofi.Ordering.Infrastructure.Persistence;
@@ -32,6 +33,7 @@ public static class ModuleRegistration
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<IPricingService, PricingService>();
         services.AddScoped<IOrderEmailService, OrderEmailService>();
+        services.AddOptions<SubscriptionOrderOptions>().BindConfiguration("Ordering");
 
         services.AddValidatorsFromAssembly(typeof(ModuleRegistration).Assembly);
 

@@ -34,6 +34,12 @@ public class OrderEmailService(IEmailTransport transport, IPricingService pricin
             $"Your order {order.Id} was cancelled.");
     }
 
+    public async Task SendPaymentDeclined(Order order)
+    {
+        await transport.Send(order.CustomerEmail.Value, $"We could not charge your card for order {order.Id}",
+            $"Your bank declined the payment for order {order.Id}. Please update your card; we will try again tomorrow.");
+    }
+
     public async Task SendShippingNotification(Order order)
     {
         await transport.Send(order.CustomerEmail.Value, $"Order {order.Id} shipped",

@@ -4,9 +4,12 @@ using Kofi.Ordering.Contracts;
 using Kofi.Subscriptions.Application.Persistence;
 using Kofi.Subscriptions.Domain.Subscriptions;
 using Microsoft.EntityFrameworkCore;
+using Wolverine.Attributes;
 
 namespace Kofi.Subscriptions.Application.EventHandlers;
 
+// Reads and sends; it reaches two modules' data, so no transaction of its own.
+[NonTransactional]
 public class SendWelcomeEmailOnSubscriptionActivated(ISubscriptionsDbContext db, IOrdering ordering, IEmailTransport email)
     : IDomainEventHandler<SubscriptionActivated>
 {

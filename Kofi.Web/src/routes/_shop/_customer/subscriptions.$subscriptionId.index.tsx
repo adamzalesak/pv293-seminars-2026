@@ -47,7 +47,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { authoriseCard } from '@/lib/authorise-card'
 import { formatDate, formatMoney, isoDay } from '@/lib/format'
-import { chargeNote, deliveryCharge, intervalLabel } from '@/lib/subscriptions'
+import { chargeNote, deliveryCharge, intervalLabel, refreshWhileProcessing } from '@/lib/subscriptions'
 import { useOnDone } from '@/lib/use-on-done'
 
 export const Route = createFileRoute('/_shop/_customer/subscriptions/$subscriptionId/')({
@@ -65,7 +65,7 @@ const statusNote: Record<string, string> = {
 
 function SubscriptionPage() {
   const { subscriptionId } = Route.useParams()
-  const subscription = useGetSubscriptionsId(subscriptionId)
+  const subscription = useGetSubscriptionsId(subscriptionId, refreshWhileProcessing)
   const onDone = useOnDone()
   const pause = usePostSubscriptionsIdPause({ mutation: onDone('Subscription paused', '/subscriptions') })
   const skip = usePostSubscriptionsIdSkip({ mutation: onDone('Next delivery skipped', '/subscriptions') })

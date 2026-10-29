@@ -8,4 +8,7 @@ public class ProductSubscription
     public Guid SubscriptionId { get; set; }
     public Guid ProductId { get; set; }
     public bool IsActive { get; set; }
+
+    // The version of the subscription this row was copied from.
+    public int Version { get; set; }
 }

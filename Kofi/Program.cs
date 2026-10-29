@@ -16,6 +16,7 @@ builder.Services.AddMarketingModule(moduleAssemblies);
 // Catalog comes last: it loads its copy of the subscriptions after they are seeded.
 builder.Services.AddCatalogModule(moduleAssemblies);
 builder.Services.AddKofiPipeline(moduleAssemblies);
+builder.AddKofiMessaging(moduleAssemblies);
 
 var app = builder.Build();
 app.UseKofiHost();

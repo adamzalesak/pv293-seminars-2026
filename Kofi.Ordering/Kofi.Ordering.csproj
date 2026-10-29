@@ -12,6 +12,7 @@
     <ProjectReference Include="../Kofi.Ordering.Contracts/Kofi.Ordering.Contracts.csproj" />
     <ProjectReference Include="../Kofi.Catalog.Contracts/Kofi.Catalog.Contracts.csproj" />
     <ProjectReference Include="../Kofi.Warehouse.Contracts/Kofi.Warehouse.Contracts.csproj" />
+    <ProjectReference Include="../Kofi.Subscriptions.Contracts/Kofi.Subscriptions.Contracts.csproj" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
   </ItemGroup>
 

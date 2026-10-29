@@ -28,7 +28,8 @@ public class PaymentGatewayClient(HttpClient http) : IPaymentGatewayClient
     // A saved card, charged with no customer present. Like CreatePayment, the
     // key names one attempt: a new attempt for the same order needs a new key.
     public async Task<(Guid PaymentId, PaymentStatus Status)> Charge(
-        decimal amount, string currency, string reference, string paymentMethodToken, string idempotencyKey)
+        decimal amount, string currency, string reference, string paymentMethodToken, string idempotencyKey,
+        bool confirmByWebhook = false)
     {
         var response = await http.PostAsJsonAsync("/charges", new
         {
@@ -37,6 +38,8 @@ public class PaymentGatewayClient(HttpClient http) : IPaymentGatewayClient
             reference,
             paymentMethodToken,
             idempotencyKey,
+            // The result then comes by webhook; the answer only says the charge is pending.
+            confirmBy = confirmByWebhook ? "webhook" : null,
         });
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();

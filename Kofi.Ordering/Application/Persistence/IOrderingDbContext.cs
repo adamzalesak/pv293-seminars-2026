@@ -1,3 +1,4 @@
+using Kofi.Ordering.Application.Sagas;
 using Kofi.Ordering.Domain.Customers;
 using Kofi.Ordering.Domain.Orders;
 using Microsoft.EntityFrameworkCore;
@@ -8,4 +9,5 @@ public interface IOrderingDbContext
 {
     DbSet<Order> Orders { get; }
     DbSet<Customer> Customers { get; }
+    DbSet<SubscriptionOrderSaga> SubscriptionOrders { get; }
 }

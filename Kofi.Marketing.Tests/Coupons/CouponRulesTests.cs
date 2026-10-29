@@ -13,15 +13,29 @@ public class CouponRulesTests
     [Fact]
     public void Referral_code_is_for_friends_once_each()
     {
-        var coupon = Coupon.IssueReferral(new CouponCode("ref-abc123"), Owner, Now);
+        var coupon = Coupon.IssueReferral(new CouponCode("ref-abc123"), Owner, Guid.NewGuid(), Now);
 
         Assert.Equal("REF-ABC123", coupon.Code.Value);
         Assert.Throws<DomainRuleException>(() => coupon.EnsureUsableBy(Owner, Now));
 
-        coupon.Redeem(Friend, Guid.NewGuid(), Now);
-        Assert.Throws<DomainRuleException>(() => coupon.Redeem(Friend, Guid.NewGuid(), Now));
+        coupon.EnsureUsableBy(Friend, Now);
+        coupon.RecordUse(Friend, Guid.NewGuid(), Now);
+        Assert.Throws<DomainRuleException>(() => coupon.EnsureUsableBy(Friend, Now));
 
-        coupon.Redeem(Guid.NewGuid(), Guid.NewGuid(), Now);
+        coupon.RecordUse(Guid.NewGuid(), Guid.NewGuid(), Now);
+        Assert.Equal(2, coupon.Uses.Count);
+    }
+
+    [Fact]
+    public void A_paid_order_records_its_use_once_even_against_the_rules()
+    {
+        var coupon = Coupon.IssueReferral(new CouponCode("REF-ABC123"), Owner, Guid.NewGuid(), Now);
+        var order = Guid.NewGuid();
+
+        coupon.RecordUse(Friend, order, Now);
+        coupon.RecordUse(Friend, order, Now);
+        coupon.RecordUse(Friend, Guid.NewGuid(), Now);
+
         Assert.Equal(2, coupon.Uses.Count);
     }
 

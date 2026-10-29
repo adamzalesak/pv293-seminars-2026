@@ -11,7 +11,7 @@ public class ActivateSubscriptionHandler(
     ISubscriptionRepository subscriptions,
     IOrdering ordering,
     IPaymentGatewayClient payments,
-    ISubscriptionOrderService orders) : ICommandHandler<ActivateSubscriptionCommand, ActivateSubscriptionResponse>
+    IDeliveryProducts products) : ICommandHandler<ActivateSubscriptionCommand, ActivateSubscriptionResponse>
 {
     public async Task<ActivateSubscriptionResponse> Handle(ActivateSubscriptionCommand command, CancellationToken ct)
     {
@@ -53,7 +53,8 @@ public class ActivateSubscriptionHandler(
 
         if (subscription.Deliveries.FirstOrDefault(d => d.Status == DeliveryStatus.Scheduled && d.ScheduledFor <= now) is { } due)
         {
-            await orders.Prepare(subscription, due.Id, now, ct);
+            await products.EnsureOnSale(due, ct);
+            subscription.StartDelivery(due.Id, now);
         }
 
         return Result(subscription, card);

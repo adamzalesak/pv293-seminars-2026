@@ -1,9 +1,8 @@
 using System.Text.Json;
-using Kofi.Common.Abstractions;
 using Kofi.Common.Services;
-using Kofi.Ordering.Application.Features.Orders.ConfirmOrderPayment;
-using MediatR;
+using Kofi.Ordering.Application.Payments;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Wolverine;
 
 namespace Kofi.Ordering.API.Endpoints;
 
@@ -13,9 +12,11 @@ public static class PaymentWebhookEndpoints
     {
         // The provider calls here after every decision about a payment; this,
         // not the customer's redirect, is where the shop learns the result.
-        // The provider repeats a delivery until it gets a 2xx answer.
+        // The provider repeats a delivery until it gets a 2xx answer, so the
+        // answer comes only once the result is stored, and a repeat is
+        // answered 2xx as well: refusing it would only make the provider retry.
         app.MapPost("/payments/webhook", async Task<Results<Ok, UnauthorizedHttpResult>> (
-                HttpRequest http, IPaymentWebhookVerifier verifier, IMediator mediator) =>
+                HttpRequest http, IPaymentWebhookVerifier verifier, IMessageBus bus) =>
             {
                 using var reader = new StreamReader(http.Body);
                 var body = await reader.ReadToEndAsync();
@@ -27,18 +28,8 @@ public static class PaymentWebhookEndpoints
                 var webhook = JsonSerializer.Deserialize<PaymentWebhookRequest>(body, JsonSerializerOptions.Web)!;
                 if (Guid.TryParse(webhook.Reference, out var orderId))
                 {
-                    try
-                    {
-                        // Confirming is idempotent: it follows the order's state,
-                        // so the redirect, the webhook and a repeated webhook
-                        // agree on one outcome.
-                        await mediator.Send(new ConfirmOrderPaymentCommand { Id = orderId, PaymentId = webhook.PaymentId });
-                    }
-                    catch (NotFoundException)
-                    {
-                        // A payment for an order the shop never saved: nothing to
-                        // confirm.
-                    }
+                    // Stored in a durable queue before we answer.
+                    await bus.PublishAsync(new PaymentResultReceived(webhook.EventId, webhook.PaymentId, orderId, webhook.Status));
                 }
 
                 return TypedResults.Ok();

@@ -22,8 +22,8 @@ test('a customer subscribes, authorises a card and the administrator ships the f
   await admin.goto(`/admin${subscriptionUrl}`)
   await expect(admin.getByText('Active', { exact: true })).toBeVisible()
 
-  // The first delivery became a paid order at once; once the order ships,
-  // the delivery shows the order's status.
+  // The first delivery becomes a paid order a few seconds after activation;
+  // once the order ships, the delivery shows the order's status.
   await admin.getByRole('link', { name: 'Ship order' }).click()
   await admin.getByRole('button', { name: 'Mark as shipped' }).click()
   await expect(admin.getByText('Shipped', { exact: true })).toBeVisible()

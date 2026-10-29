@@ -25,7 +25,7 @@ export const Route = createFileRoute('/_shop/_customer/subscriptions/$subscripti
   component: CardReturn,
 })
 
-// Activating may prepare and charge the first delivery, so it is asked once per return.
+// Activating may start the first delivery, so it is asked once per return.
 const confirmOnce = { query: { staleTime: Infinity, retry: false } }
 
 function CardReturn() {

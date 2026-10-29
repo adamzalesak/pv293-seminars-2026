@@ -2,4 +2,5 @@ using Kofi.Contracts;
 
 namespace Kofi.Ordering.Contracts;
 
-public record OrderPaidIntegrationEvent(Guid OrderId, Guid CustomerId, string? CouponCode) : IIntegrationEvent;
+// DeliveryId is set when the order fulfils a subscription delivery.
+public record OrderPaidIntegrationEvent(Guid OrderId, Guid CustomerId, string? CouponCode, Guid? DeliveryId) : IIntegrationEvent;
