@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDate, formatDateTime, formatMoney } from '@/lib/format'
-import { intervalLabel, isDue } from '@/lib/subscriptions'
+import { intervalLabel, isDue, refreshWhileProcessing } from '@/lib/subscriptions'
 import { useOnDone } from '@/lib/use-on-done'
 
 export const Route = createFileRoute('/admin/subscriptions/$subscriptionId')({
@@ -25,7 +25,7 @@ export const Route = createFileRoute('/admin/subscriptions/$subscriptionId')({
 
 function AdminSubscription() {
   const { subscriptionId } = Route.useParams()
-  const subscription = useGetSubscriptionsId(subscriptionId)
+  const subscription = useGetSubscriptionsId(subscriptionId, refreshWhileProcessing)
   const onDone = useOnDone()
   const prepare = usePostSubscriptionsIdDeliveriesDeliveryIdPrepare({
     mutation: onDone('Delivery prepared', '/subscriptions', '/orders', '/products'),

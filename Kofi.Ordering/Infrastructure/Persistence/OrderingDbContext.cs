@@ -1,5 +1,6 @@
 using Kofi.Common.Persistence;
 using Kofi.Ordering.Application.Persistence;
+using Kofi.Ordering.Application.Sagas;
 using Kofi.Ordering.Domain.Customers;
 using Kofi.Ordering.Domain.Orders;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Ag
 {
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<SubscriptionOrderSaga> SubscriptionOrders => Set<SubscriptionOrderSaga>();
 
     protected override void ConfigureModel(ModelBuilder modelBuilder) =>
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrderingDbContext).Assembly);

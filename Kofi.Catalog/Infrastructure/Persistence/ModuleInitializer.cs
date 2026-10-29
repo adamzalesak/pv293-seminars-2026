@@ -30,8 +30,8 @@ internal sealed class ModuleInitializer(CatalogDbContext db) : IModuleInitialize
         // load reads the Subscriptions schema directly; from then on only the
         // published facts keep the copy current.
         await db.Database.ExecuteSqlRawAsync("""
-            INSERT INTO catalog."ProductSubscriptions" ("SubscriptionId", "ProductId", "IsActive")
-            SELECT "Id", "ProductId", TRUE FROM subscriptions."Subscriptions"
+            INSERT INTO catalog."ProductSubscriptions" ("SubscriptionId", "ProductId", "IsActive", "Version")
+            SELECT "Id", "ProductId", TRUE, "Version" FROM subscriptions."Subscriptions"
             WHERE "Status" IN ('Active', 'Paused')
             AND NOT EXISTS (SELECT 1 FROM catalog."ProductSubscriptions")
             """, ct);

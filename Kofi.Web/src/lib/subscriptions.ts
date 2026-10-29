@@ -1,4 +1,4 @@
-import type { SubscriptionDeliveryDetail } from '@/api/generated/model'
+import type { SubscriptionDeliveryDetail, SubscriptionDetail } from '@/api/generated/model'
 import { shippingFor } from '@/lib/cart'
 import { formatMoney } from '@/lib/format'
 
@@ -32,3 +32,12 @@ export const chargeNote = (shipping: number) =>
   shipping === 0 ? 'free delivery' : `incl. ${formatMoney(shipping)} delivery`
 
 export const isDue = (scheduledFor: string) => new Date(scheduledFor) <= new Date()
+
+// A due delivery waits as Processing until its order is paid or given up;
+// the page asks again every second until then.
+export const refreshWhileProcessing = {
+  query: {
+    refetchInterval: (query: { state: { data?: SubscriptionDetail } }) =>
+      query.state.data?.deliveries.some((d) => d.status === 'Processing') ? 1000 : false,
+  },
+}

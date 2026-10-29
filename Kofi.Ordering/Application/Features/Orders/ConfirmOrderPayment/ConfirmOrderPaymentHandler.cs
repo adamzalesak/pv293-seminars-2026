@@ -20,19 +20,15 @@ public class ConfirmOrderPaymentHandler(
         // Never trust the redirect: ask the provider what really happened.
         var status = await payments.GetStatus(command.PaymentId);
 
-        if (order.Status == OrderStatus.Cancelled)
+        if (order.AcceptPaymentResult(command.PaymentId, status == PaymentStatus.Captured))
         {
             // The order was cancelled meanwhile. Money that was taken goes back.
-            if (status == PaymentStatus.Captured)
-            {
-                await payments.CancelOrRefund(command.PaymentId);
-            }
-
-            return new ConfirmOrderPaymentResponse { OrderId = order.Id, Status = PaymentOutcome.Cancelled.ToString() };
+            await payments.CancelOrRefund(command.PaymentId);
         }
-        else if (status == PaymentStatus.Captured && order.Status == OrderStatus.New)
+
+        if (order.Status == OrderStatus.Cancelled)
         {
-            order.RecordPayment(command.PaymentId);
+            return new ConfirmOrderPaymentResponse { OrderId = order.Id, Status = PaymentOutcome.Cancelled.ToString() };
         }
 
         // The customer is told the shop's outcome, not the provider's own words.

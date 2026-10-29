@@ -1,12 +1,14 @@
 using Kofi.Common.Abstractions;
+using Kofi.Subscriptions.Application.Persistence;
 using Kofi.Subscriptions.Contracts;
 using Kofi.Subscriptions.Domain.Subscriptions;
-using MediatR;
+using Wolverine;
 
 namespace Kofi.Subscriptions.Application.EventHandlers;
 
-public class SubscriptionCancelledPublisher(IPublisher publisher) : IDomainEventHandler<SubscriptionCancelled>
+public class SubscriptionCancelledPublisher(ISubscriptionsDbContext db, IMessageBus bus) : IDomainEventHandler<SubscriptionCancelled>
 {
-    public Task Handle(SubscriptionCancelled cancelled, CancellationToken ct) =>
-        publisher.Publish(new SubscriptionCancelledIntegrationEvent(cancelled.SubscriptionId), ct);
+    public async Task Handle(SubscriptionCancelled cancelled, CancellationToken ct) =>
+        await bus.PublishAsync(new SubscriptionCancelledIntegrationEvent(cancelled.SubscriptionId, cancelled.CancelledAt,
+            await PublishedState.Of(db, cancelled.SubscriptionId, ct)));
 }

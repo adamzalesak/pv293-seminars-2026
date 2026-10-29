@@ -36,12 +36,28 @@ public class Delivery
 
     internal bool IsScheduled => Status == DeliveryStatus.Scheduled;
 
-    // An order has been placed for this delivery; from now on it is being
-    // fulfilled and the plan no longer moves it.
-    internal void Prepare(Guid orderId)
+    // The delivery is due and announced; from now on the plan no longer moves it.
+    internal void StartProcessing()
     {
         RejectUnless(IsScheduled, "Only a scheduled delivery can be prepared.");
+        Status = DeliveryStatus.Processing;
+    }
+
+    internal bool IsProcessing => Status == DeliveryStatus.Processing;
+
+    // Its order is paid.
+    internal void Complete(Guid orderId)
+    {
+        RejectUnless(IsProcessing, "Only a delivery being processed can be completed.");
         Status = DeliveryStatus.Ready;
+        OrderId = orderId;
+    }
+
+    // No order came of it: out of stock, or the payment never went through.
+    internal void Fail(Guid? orderId)
+    {
+        RejectUnless(IsProcessing, "Only a delivery being processed can fail.");
+        Status = DeliveryStatus.Skipped;
         OrderId = orderId;
     }
 

@@ -16,8 +16,8 @@ public class RecordCouponUseOnOrderPaid(IMarketingDbContext db) : IIntegrationEv
         }
 
         var code = new CouponCode(paid.CouponCode);
-        var coupon = await db.Coupons.FirstOrDefaultAsync(c => c.Code.Value == code.Value, ct) ??
-                     throw new NotFoundException("Coupon not found");
-        coupon.Redeem(paid.CustomerId, paid.OrderId, DateTime.Now);
+        // The order was paid with this code: record it, never refuse the fact.
+        var coupon = await db.Coupons.FirstOrDefaultAsync(c => c.Code.Value == code.Value, ct);
+        coupon?.RecordUse(paid.CustomerId, paid.OrderId, DateTime.Now);
     }
 }

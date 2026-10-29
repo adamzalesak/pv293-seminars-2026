@@ -1,7 +1,10 @@
 using Kofi.Common.Domain;
-using MediatR;
 
 namespace Kofi.Common.Abstractions;
 
-public interface IDomainEventHandler<in TEvent> : INotificationHandler<TEvent>
-    where TEvent : IDomainEvent;
+// Wolverine runs every implementation as its own handler, from a durable local queue.
+public interface IDomainEventHandler<in TEvent>
+    where TEvent : IDomainEvent
+{
+    Task Handle(TEvent domainEvent, CancellationToken ct);
+}

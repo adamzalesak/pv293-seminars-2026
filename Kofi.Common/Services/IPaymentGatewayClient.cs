@@ -6,7 +6,8 @@ public interface IPaymentGatewayClient
         decimal amount, string currency, string reference, string returnUrl, string idempotencyKey);
 
     Task<(Guid PaymentId, PaymentStatus Status)> Charge(
-        decimal amount, string currency, string reference, string paymentMethodToken, string idempotencyKey);
+        decimal amount, string currency, string reference, string paymentMethodToken, string idempotencyKey,
+        bool confirmByWebhook = false);
 
     Task<PaymentStatus> CancelOrRefund(Guid paymentId);
     Task<PaymentStatus> GetStatus(Guid paymentId);

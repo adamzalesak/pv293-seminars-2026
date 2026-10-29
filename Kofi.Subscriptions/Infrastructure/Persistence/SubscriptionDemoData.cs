@@ -37,8 +37,9 @@ internal static class SubscriptionDemoData
 
         foreach (var order in orders)
         {
-            subscription.PrepareDelivery(subscription.Deliveries.Single(d => d.Status == DeliveryStatus.Scheduled).Id,
-                order.OrderId, now.AddDays(-order.DaysAgo));
+            var delivery = subscription.Deliveries.Single(d => d.Status == DeliveryStatus.Scheduled).Id;
+            subscription.StartDelivery(delivery, now.AddDays(-order.DaysAgo));
+            subscription.CompleteDelivery(delivery, order.OrderId);
         }
 
         return subscription;

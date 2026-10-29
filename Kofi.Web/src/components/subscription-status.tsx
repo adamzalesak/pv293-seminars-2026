@@ -24,6 +24,7 @@ export function SubscriptionStatus({ status }: { status: string }) {
 
 const deliveryVariants = {
   Scheduled: 'outline',
+  Processing: 'secondary',
   Ready: 'secondary',
   Skipped: 'outline',
   Cancelled: 'destructive',
@@ -31,6 +32,7 @@ const deliveryVariants = {
 
 const deliveryLabels: Record<string, string> = {
   Scheduled: 'Planned',
+  Processing: 'Being prepared',
   Ready: 'Order placed',
   Skipped: 'Skipped',
   Cancelled: 'Cancelled',

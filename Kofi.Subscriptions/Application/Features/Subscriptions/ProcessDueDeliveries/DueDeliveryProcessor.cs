@@ -8,10 +8,10 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Kofi.Subscriptions.Application.Features.Subscriptions.ProcessDueDeliveries;
 
-// What the daily cron job in our infrastructure calls. Every due delivery goes
+// What the daily recurring message (PrepareDueDeliveries) runs. Every due delivery goes
 // through the same PrepareDeliveryCommand as a manual /prepare, each in its
 // own scope: its own DbContext, its own transaction. A delivery that is turned
-// down (no stock, a product gone) stays Scheduled for the next run and does
+// down (a product gone) stays Scheduled for the next run and does
 // not stop the others. Every due delivery is tried once per run, oldest first:
 // a batch limit would let the same failing ones crowd out the rest forever.
 public class DueDeliveryProcessor(ISubscriptionsDbContext db, IServiceScopeFactory scopes)

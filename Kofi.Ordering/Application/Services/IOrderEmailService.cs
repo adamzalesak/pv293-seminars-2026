@@ -7,4 +7,5 @@ public interface IOrderEmailService
     Task SendOrderConfirmation(Order order);
     Task SendOrderCancelled(Order order);
     Task SendShippingNotification(Order order);
+    Task SendPaymentDeclined(Order order);
 }

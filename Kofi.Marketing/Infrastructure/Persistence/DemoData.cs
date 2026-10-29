@@ -15,7 +15,7 @@ internal static class DemoData
 
         var now = DateTime.Now;
         db.Coupons.AddRange(
-            Coupon.IssueReferral(new CouponCode("REF-PETRA7"), Petra, now.AddDays(-20)),
+            Coupon.IssueReferral(new CouponCode("REF-PETRA7"), Petra, null, now.AddDays(-20)),
             Coupon.Issue(new CouponCode("KOFI10"), new Discount(10), now.AddDays(30),
                 now.AddDays(-5)));
         db.SaveChanges();

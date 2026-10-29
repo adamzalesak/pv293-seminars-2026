@@ -26,16 +26,46 @@ The discount applies to the items, not to shipping. Each customer uses a
 coupon once, and the owner of a referral code cannot use it.
 
 Modules announce what happened through integration events in their
-Contracts, delivered in-process by MediatR inside the command transaction.
+Contracts. Commands and queries run on MediatR; every event, domain or
+integration, is stored by Wolverine in the command's transaction and handed
+to its handlers after the commit. Each handler runs on its own durable local
+queue in its own transaction, so a crash or restart does not lose a message.
+A failing handler is retried after 1, 2 and 4 seconds; then the message moves
+to the dead letter queue (`wolverine.wolverine_dead_letters`).
+
+Due deliveries are prepared by a Wolverine recurring message,
+`PrepareDueDeliveries`, on the cron schedule in
+`Subscriptions:DueDeliveriesCron` (daily at 6:00; every minute in
+Development). `POST /subscriptions/process-due` runs the same by hand.
+
+A due delivery becomes `Processing` and Subscriptions publishes
+`DeliveryDueIntegrationEvent`. `SubscriptionOrderSaga` in Ordering, keyed by
+the delivery id, reserves the stock in Warehouse (`ReserveStock`), places the
+order and charges the saved card; the result comes by webhook. A declined
+card is retried after `Ordering:PaymentRetryAfter` (a day), three tries in
+all, and the customer is asked to update it. After the third decline the saga
+cancels the order and releases the stock (`ReleaseStock`). Subscriptions
+reacts to `OrderPaidIntegrationEvent` (delivery `Ready`) and to
+`OrderFailedIntegrationEvent` or `OrderCancelledIntegrationEvent` (delivery
+`Skipped`, e-mail); either way the next delivery is planned. Web checkout
+does not use the saga.
 Marketing issues the referral code on `SubscriptionActivatedIntegrationEvent`
 and records a coupon use on `OrderPaidIntegrationEvent`. Catalog keeps its own
 copy of running subscriptions per product and shows `ActiveSubscriptionCount`.
 
 The payment provider calls `POST /payments/webhook` after every decision
 about a payment, signed with HMAC-SHA256 (`X-Signature`) and retried until
-it gets a 2xx answer. The webhook is the source of truth for the payment;
-the customer's redirect back to the shop only shows the result sooner. Both
-confirm the payment idempotently, by the order's state.
+it gets a 2xx answer. The shop stores it as `PaymentResultReceived` in a
+durable queue before answering; its handler runs once per provider
+`eventId` (`[Deduplicated]`). The webhook is the source of truth for the
+payment; the customer's redirect back to the shop only shows the result
+sooner. Both confirm the payment idempotently, by the order's state.
+
+Handlers tolerate a message delivered twice: Marketing issues one referral
+code per subscription and records a coupon use once per order, without
+refusing it. Subscription events carry the subscription's state and version,
+and Catalog's copy keeps the newest one, so events arriving out of order
+cannot roll it back.
 
 The `Demo` section in `Kofi/appsettings.json` slows down the referral coupon
 handler (`MarketingDelayMs`) and makes the popularity handler in Catalog fail

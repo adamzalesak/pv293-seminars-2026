@@ -107,7 +107,7 @@ public class Subscription : AggregateRoot
         CancelledAt = now;
         NextDeliveryAt = null;
 
-        Raise(new SubscriptionCancelled(Id));
+        Raise(new SubscriptionCancelled(Id, now));
 
         // Only what was merely planned. A delivery an order was already
         // placed for runs its own course and can still arrive; stopping that
@@ -164,40 +164,63 @@ public class Subscription : AggregateRoot
         EditableDelivery(deliveryId).RemoveExtra(productId);
     }
 
-    public IReadOnlyList<DeliveryLine> LinesToPrepare(Guid deliveryId, DateTime now)
+    // The delivery is due: it is announced with everything an order needs,
+    // and waits as Processing for the outcome.
+    public void StartDelivery(Guid deliveryId, DateTime now)
     {
         RejectUnless(Status == SubscriptionStatus.Active, "Only an active subscription can prepare a delivery.");
         var delivery = EditableDelivery(deliveryId);
         RejectUnless(delivery.ScheduledFor <= now, "This delivery is not due yet.");
-
-        return new[] { new DeliveryLine(delivery.ProductId, Plan.ProductName, delivery.Quantity, delivery.UnitPrice) }
-            .Concat(delivery.Extras.Select(e => new DeliveryLine(e.ProductId, e.ProductName, e.Quantity, e.UnitPrice)))
-            .ToList();
-    }
-
-    public PreparedDelivery PrepareDelivery(Guid deliveryId, Guid orderId, DateTime now)
-    {
-        RejectUnless(Status == SubscriptionStatus.Active, "Only an active subscription can prepare a delivery.");
-        var delivery = EditableDelivery(deliveryId);
-        RejectUnless(delivery.ScheduledFor <= now, "This delivery is not due yet.");
-        delivery.Prepare(orderId);
-        Schedule(delivery.ScheduledFor.AddDays(Plan.IntervalDays));
+        delivery.StartProcessing();
 
         var lines = new List<DeliveryLine> { new(delivery.ProductId, Plan.ProductName, delivery.Quantity, delivery.UnitPrice) };
         lines.AddRange(delivery.Extras.Select(e => new DeliveryLine(e.ProductId, e.ProductName, e.Quantity, e.UnitPrice)));
 
-        return new PreparedDelivery(orderId, lines);
+        Raise(new DeliveryDue(Id, deliveryId, CustomerId, lines, now));
     }
 
-    // A delivery wanted for today, or a day already gone, goes out at once
-    // instead of waiting for the next daily run.
-    public PreparedDelivery? PrepareIfDue(Guid orderId, DateTime now)
+    // The order for the delivery is paid. Hearing it again changes nothing.
+    public void CompleteDelivery(Guid deliveryId, Guid orderId)
     {
-        var next = NextScheduled();
-        return next != null && next.ScheduledFor <= now
-            ? PrepareDelivery(next.Id, orderId, now)
-            : null;
+        var delivery = DeliveryOf(deliveryId);
+        if (delivery.Status == DeliveryStatus.Ready && delivery.OrderId == orderId)
+        {
+            return;
+        }
+
+        delivery.Complete(orderId);
+        ScheduleNextAfter(delivery);
     }
+
+    // No order came of the delivery. A business decision, not a rollback: the
+    // delivery is skipped and the next one comes as planned. Hearing it again
+    // changes nothing.
+    public void SkipFailedDelivery(Guid deliveryId, Guid? orderId, string reason)
+    {
+        var delivery = DeliveryOf(deliveryId);
+        if (delivery.Status == DeliveryStatus.Skipped)
+        {
+            return;
+        }
+
+        delivery.Fail(orderId);
+        ScheduleNextAfter(delivery);
+        Raise(new DeliverySkipped(Id, deliveryId, reason));
+    }
+
+    private void ScheduleNextAfter(Delivery delivery)
+    {
+        // A cancelled subscription plans nothing more, and one resumed while
+        // this delivery was processing already has its next one.
+        if (Status != SubscriptionStatus.Cancelled && NextScheduled() == null)
+        {
+            Schedule(delivery.ScheduledFor.AddDays(Plan.IntervalDays));
+        }
+    }
+
+    private Delivery DeliveryOf(Guid deliveryId) =>
+        _deliveries.SingleOrDefault(d => d.Id == deliveryId)
+        ?? throw new DomainRuleException("This subscription has no such delivery.");
 
     private Delivery EditableDelivery(Guid deliveryId)
     {

@@ -14,7 +14,8 @@ export async function authHeader(request: APIRequestContext, email: string, pass
 }
 
 // Petra subscribes with the first delivery today and authorises her card at
-// the payment provider; activation then prepares the first delivery as a paid order.
+// the payment provider; activation then starts the first delivery, which
+// becomes a paid order a few seconds later.
 export async function activeSubscription(request: APIRequestContext) {
   const petra = await authHeader(request, 'petra@example.com', 'Customer123!')
   const kolumbie = (await (await request.get('/api/products?search=Kolumbie')).json()).items[0]

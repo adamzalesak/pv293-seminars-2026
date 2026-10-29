@@ -16,13 +16,17 @@ public class Order : AggregateRoot
     public ShippingAddress ShippingAddress { get; private set; } = null!;
     public DateTime CreatedAt { get; private set; }
     public AppliedCoupon? Coupon { get; private set; }
+
+    // The subscription delivery this order fulfils; none for the web shop.
+    public Guid? DeliveryId { get; private set; }
     public IReadOnlyList<OrderItem> Items => _items.AsReadOnly();
 
     public static Order Create(Guid id, Guid customerId, string name, Email email, ShippingAddress address, DateTime now,
-        IEnumerable<OrderItem> items, AppliedCoupon? coupon = null)
+        IEnumerable<OrderItem> items, AppliedCoupon? coupon = null, Guid? deliveryId = null)
     {
         var order = new Order
         {
+            DeliveryId = deliveryId,
             Id = id,
             CustomerId = customerId,
             CustomerName = name,
@@ -99,7 +103,25 @@ public class Order : AggregateRoot
         PaymentId = paymentId;
         Status = OrderStatus.Paid;
 
-        Raise(new OrderPaid(Id, CustomerId, Coupon?.Code));
+        Raise(new OrderPaid(Id, paymentId));
+    }
+
+    // The provider's word on a payment. Returns true when the money has to go
+    // back: it was taken for an order cancelled in the meantime. Asking twice
+    // with the same answer changes nothing.
+    public bool AcceptPaymentResult(Guid paymentId, bool captured)
+    {
+        if (Status == OrderStatus.Cancelled)
+        {
+            return captured;
+        }
+
+        if (captured && Status == OrderStatus.New)
+        {
+            RecordPayment(paymentId);
+        }
+
+        return false;
     }
 
     public void Ship()

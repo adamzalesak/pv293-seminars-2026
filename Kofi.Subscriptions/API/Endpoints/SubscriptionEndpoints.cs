@@ -65,7 +65,7 @@ public static class SubscriptionEndpoints
                     TypedResults.Ok(await mediator.Send(new ActivateSubscriptionCommand { Id = id, SetupId = setupId })))
             .AllowAnonymous();
 
-        // Called once a day by the cron job in our infrastructure.
+        // The same run Wolverine starts every day, by hand: for tests and support.
         subscriptions.MapPost("/process-due",
                 async Task<Ok<ProcessDueDeliveriesResponse>> (DueDeliveryProcessor processor, CancellationToken ct) =>
                     TypedResults.Ok(await processor.Run(ct)))

@@ -51,4 +51,11 @@ internal static class SubscriptionFactory
 
     public static DateTime Later() =>
         Now.AddDays(32);
+
+    // A delivery that was due and whose order has been paid, in one step.
+    public static void PrepareDelivery(this Subscription subscription, Guid deliveryId, Guid orderId, DateTime now)
+    {
+        subscription.StartDelivery(deliveryId, now);
+        subscription.CompleteDelivery(deliveryId, orderId);
+    }
 }

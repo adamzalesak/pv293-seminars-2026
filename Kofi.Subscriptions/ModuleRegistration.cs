@@ -28,8 +28,8 @@ public static class ModuleRegistration
         services.AddScoped<AggregateDbContext>(sp => sp.GetRequiredService<SubscriptionsDbContext>());
 
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
-        services.AddScoped<ISubscriptionOrderService, SubscriptionOrderService>();
         services.AddScoped<DueDeliveryProcessor>();
+        services.AddScoped<IDeliveryProducts, DeliveryProducts>();
 
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(SubscriptionOwnershipBehavior<,>));
         services.AddValidatorsFromAssembly(typeof(ModuleRegistration).Assembly);
