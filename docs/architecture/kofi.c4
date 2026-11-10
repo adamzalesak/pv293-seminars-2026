@@ -3,7 +3,7 @@
 // As-is. Drawn on design day as a proposal, then held up against four months
 // of code and it survived: the API is one container, joined in seminar 2 by
 // the web front end. Level 3 moved for the first time in seminar 4, when the
-// domain project arrived (ADR-0006).
+// domain project arrived (ADR-0006), followed by the complete Clean refactor.
 //
 // Preview:  npx likec4 start
 // Export:   npx likec4 export png -o docs/architecture/
@@ -36,24 +36,21 @@ model {
   kofi = system 'KoFI' {
     description 'E-shop: catalog, orders, subscriptions, stock, customer e-mails'
 
-    api = container 'Kofi.API' {
+    api = container 'Kofi' {
       technology 'ASP.NET Core 10'
       description 'REST API and all business logic'
 
       // --- Level 3: the inside of the container ---
-      // Four projects. The line is no longer straight: since ADR-0006 both
-      // the business and the data layer point at the domain, which points at
-      // nothing. How the code inside each of them is organised is not
-      // visible at this level.
-      apiProject = component 'Kofi.API' {
+      // Clean dependency directions; the domain model is still shared.
+      apiProject = component 'Kofi' {
         technology 'ASP.NET Core'
         description 'HTTP endpoints and composition root'
       }
-      businessProject = component 'Kofi.BusinessLayer' {
+      businessProject = component 'Kofi.Application' {
         technology 'C# class library'
         description 'What the application does'
       }
-      dataProject = component 'Kofi.DataAccessLayer' {
+      dataProject = component 'Kofi.Infrastructure' {
         technology 'EF Core'
         description 'DbContext, mapping, repositories'
       }
@@ -63,7 +60,8 @@ model {
       }
 
       apiProject -> businessProject 'references'
-      businessProject -> dataProject 'references'
+      apiProject -> dataProject 'references'
+      dataProject -> businessProject 'implements ports from'
       businessProject -> domainProject 'references'
       dataProject -> domainProject 'references'
     }

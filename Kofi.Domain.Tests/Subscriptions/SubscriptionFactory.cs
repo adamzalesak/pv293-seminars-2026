@@ -18,7 +18,8 @@ internal static class SubscriptionFactory
     public static Subscription Incomplete(DateTime? firstDeliveryOn = null) =>
         Subscription.Create(
             customerId: Guid.NewGuid(),
-            plan: Plan(),
+            product: new OfferedProduct(ProductId, "Etiopie Yirgacheffe 250 g", new Price(12.50m, "EUR"), true),
+            quantity: new Quantity(2), intervalDays: 21,
             firstDeliveryOn: firstDeliveryOn ?? Now.Date,
             now: Now);
 
@@ -29,6 +30,7 @@ internal static class SubscriptionFactory
         var subscription = Incomplete();
         subscription.Activate(Now);
         subscription.PrepareDelivery(subscription.Deliveries.Single().Id, FirstOrderId, Now);
+
         return subscription;
     }
 
@@ -36,6 +38,7 @@ internal static class SubscriptionFactory
     {
         var subscription = Active();
         subscription.Cancel(Later());
+
         return subscription;
     }
 
