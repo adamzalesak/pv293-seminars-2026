@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <ProjectReference Include="../Kofi.Ordering/Kofi.Ordering.csproj" />
     <ProjectReference Include="..\Kofi.ServiceDefaults\Kofi.ServiceDefaults.csproj" />
     <ProjectReference Include="..\Kofi.Infrastructure\Kofi.Infrastructure.csproj" />
     <ProjectReference Include="..\Kofi.Application\Kofi.Application.csproj" />

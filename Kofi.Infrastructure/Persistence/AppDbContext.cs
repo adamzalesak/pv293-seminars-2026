@@ -1,7 +1,5 @@
 using Kofi.Application.Persistence;
-using Kofi.Domain;
-using Kofi.Domain.Customers;
-using Kofi.Domain.Orders;
+using Kofi.Common.Domain;
 using Kofi.Domain.Products;
 using Kofi.Domain.Subscriptions;
 using Microsoft.EntityFrameworkCore;
@@ -12,8 +10,6 @@ namespace Kofi.Infrastructure.Persistence;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options), IApplicationDbContext
 {
     public DbSet<Product> Products => Set<Product>();
-    public DbSet<Order> Orders => Set<Order>();
-    public DbSet<Customer> Customers => Set<Customer>();
 
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
 

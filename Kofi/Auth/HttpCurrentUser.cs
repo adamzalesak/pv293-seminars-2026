@@ -1,4 +1,4 @@
-using Kofi.Application.Services;
+using Kofi.Common.Services;
 
 namespace Kofi.Auth;
 

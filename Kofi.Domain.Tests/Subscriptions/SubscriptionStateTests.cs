@@ -1,5 +1,5 @@
+using Kofi.Common.Domain;
 using Kofi.Domain.Subscriptions;
-using Kofi.Domain;
 using Xunit;
 
 namespace Kofi.Domain.Tests.Subscriptions;
@@ -24,8 +24,7 @@ public class SubscriptionStateTests
     {
         var subscription = SubscriptionFactory.Active();
 
-        Assert.Throws<DomainRuleException>(
-            () => subscription.Activate(SubscriptionFactory.Now));
+        Assert.Throws<DomainRuleException>(() => subscription.Activate(SubscriptionFactory.Now));
 
         Assert.Equal(2, subscription.Deliveries.Count);
     }
@@ -46,8 +45,7 @@ public class SubscriptionStateTests
     {
         var subscription = SubscriptionFactory.Incomplete();
 
-        Assert.Throws<DomainRuleException>(
-            () => subscription.Pause(SubscriptionFactory.Now));
+        Assert.Throws<DomainRuleException>(() => subscription.Pause(SubscriptionFactory.Now));
 
         Assert.Equal(SubscriptionStatus.Incomplete, subscription.Status);
     }
@@ -57,8 +55,7 @@ public class SubscriptionStateTests
     {
         var subscription = SubscriptionFactory.Cancelled();
 
-        Assert.Throws<DomainRuleException>(
-            () => subscription.Pause(SubscriptionFactory.Later().AddDays(1)));
+        Assert.Throws<DomainRuleException>(() => subscription.Pause(SubscriptionFactory.Later().AddDays(1)));
 
         Assert.Equal(SubscriptionStatus.Cancelled, subscription.Status);
         Assert.Null(subscription.PausedAt);
@@ -98,8 +95,7 @@ public class SubscriptionStateTests
         var subscription = SubscriptionFactory.Active();
         subscription.Pause(SubscriptionFactory.Now);
 
-        Assert.Throws<DomainRuleException>(
-            () => subscription.Resume(SubscriptionFactory.Now.Date.AddDays(-1), SubscriptionFactory.Now));
+        Assert.Throws<DomainRuleException>(() => subscription.Resume(SubscriptionFactory.Now.Date.AddDays(-1), SubscriptionFactory.Now));
 
         Assert.Equal(SubscriptionStatus.Paused, subscription.Status);
     }
@@ -121,8 +117,7 @@ public class SubscriptionStateTests
     {
         var subscription = SubscriptionFactory.Active();
 
-        Assert.Throws<DomainRuleException>(
-            () => subscription.Resume(SubscriptionFactory.Now.Date, SubscriptionFactory.Now));
+        Assert.Throws<DomainRuleException>(() => subscription.Resume(SubscriptionFactory.Now.Date, SubscriptionFactory.Now));
 
         Assert.Equal(SubscriptionStatus.Active, subscription.Status);
     }
@@ -133,8 +128,7 @@ public class SubscriptionStateTests
         var subscription = SubscriptionFactory.Cancelled();
         var cancelledAt = subscription.CancelledAt;
 
-        Assert.Throws<DomainRuleException>(
-            () => subscription.Cancel(SubscriptionFactory.Later().AddDays(1)));
+        Assert.Throws<DomainRuleException>(() => subscription.Cancel(SubscriptionFactory.Later().AddDays(1)));
 
         Assert.Equal(cancelledAt, subscription.CancelledAt);
     }

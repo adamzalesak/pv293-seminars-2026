@@ -11,6 +11,7 @@ import {
   usePostProducts,
   usePostProductsIdActivate,
   usePostProductsIdDeactivate,
+  usePostProductsIdDiscontinue,
   usePostProductsIdRestock,
   usePutProductsId,
   usePutProductsIdPrice,
@@ -59,6 +60,7 @@ function AdminProducts() {
   const [creating, setCreating] = useState(false)
   const [action, setAction] = useState<Action>(null)
   const onDone = useOnDone()
+  const discontinue = usePostProductsIdDiscontinue({ mutation: onDone('Product set to sell-through', '/products') })
   const activate = usePostProductsIdActivate({ mutation: onDone('Product back on sale', '/products') })
 
   return (
@@ -95,7 +97,7 @@ function AdminProducts() {
                 <TableRow key={p.id} className={p.isActive ? undefined : 'text-muted-foreground'}>
                   <TableCell className="font-medium">
                     {p.name}
-                    {!p.isActive && <span className="ml-2 text-xs font-normal">Off sale</span>}
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">{p.status === 'Inactive' ? 'Off sale' : p.status === 'Discontinued' ? 'Sell-through' : p.status}</span>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{p.origin ?? '—'}</TableCell>
                   <TableCell className="text-muted-foreground">{p.roastedOn ? formatDate(p.roastedOn) : '—'}</TableCell>
@@ -113,6 +115,11 @@ function AdminProducts() {
                         <DropdownMenuItem onSelect={() => setAction({ kind: 'price', product: p })}>Change price</DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => setAction({ kind: 'restock', product: p })}>Restock</DropdownMenuItem>
                         <DropdownMenuSeparator />
+                        {p.status === 'Active' && (
+                          <DropdownMenuItem disabled={discontinue.isPending} onSelect={() => discontinue.mutate({ id: p.id! })}>
+                            Sell remaining stock
+                          </DropdownMenuItem>
+                        )}
                         {p.isActive ? (
                           <DropdownMenuItem variant="destructive" onSelect={() => setAction({ kind: 'deactivate', product: p })}>
                             Stop selling

@@ -6,9 +6,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <!-- The only dependency: the marker for a published fact. No EF, no
-       ASP.NET, no project of ours. -->
+  <!-- The message dependency: the marker for a published fact. No EF, no
+       ASP.NET, domain building blocks are shared without EF or ASP.NET. -->
   <ItemGroup>
+    <ProjectReference Include="../Kofi.Common/Kofi.Common.csproj" />
     <PackageReference Include="MediatR" Version="12.5.0" />
   </ItemGroup>
 

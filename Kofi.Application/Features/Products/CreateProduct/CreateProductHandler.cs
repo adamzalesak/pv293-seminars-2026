@@ -1,5 +1,5 @@
-using Kofi.Application.Abstractions;
 using Kofi.Application.Repositories;
+using Kofi.Common.Abstractions;
 using Kofi.Domain.Products;
 using Kofi.Domain.Shared;
 

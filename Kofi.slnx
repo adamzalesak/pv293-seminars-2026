@@ -2,9 +2,15 @@
   <Project Path="Kofi.AppHost/Kofi.AppHost.csproj" />
   <Project Path="Kofi.ServiceDefaults/Kofi.ServiceDefaults.csproj" />
   <Project Path="Kofi/Kofi.csproj" />
-  <Project Path="Kofi.Domain/Kofi.Domain.csproj" />
-  <Project Path="Kofi.Domain.Tests/Kofi.Domain.Tests.csproj" />
-  <Project Path="Kofi.Application/Kofi.Application.csproj" />
-  <Project Path="Kofi.Infrastructure/Kofi.Infrastructure.csproj" />
   <Project Path="PaymentGateway/PaymentGateway.csproj" />
+  <Project Path="Kofi.Common/Kofi.Common.csproj" />
+  <Project Path="Kofi.Application/Kofi.Application.csproj" />
+  <Project Path="Kofi.Domain/Kofi.Domain.csproj" />
+  <Project Path="Kofi.Infrastructure/Kofi.Infrastructure.csproj" />
+  <Project Path="Kofi.Domain.Tests/Kofi.Domain.Tests.csproj" />
+  <Folder Name="/Ordering/">
+    <Project Path="Kofi.Ordering/Kofi.Ordering.csproj" />
+    <Project Path="Kofi.Ordering.Contracts/Kofi.Ordering.Contracts.csproj" />
+    <Project Path="Kofi.Ordering.Tests/Kofi.Ordering.Tests.csproj" />
+  </Folder>
 </Solution>

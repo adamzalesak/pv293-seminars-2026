@@ -35,7 +35,7 @@ function ProductDetail() {
   const price = Number(p.price ?? 0)
   const name = p.name ?? ''
   const inCart = cart.lines.find((l) => l.productId === p.id)?.quantity ?? 0
-  const canAdd = p.isActive && stock - inCart > 0
+  const canAdd = p.canBeSold && stock - inCart > 0
 
   return (
     <div className="space-y-6">
@@ -136,7 +136,7 @@ function ProductDetail() {
             </p>
           )}
           {/* Coffee comes as a subscription too; the administrator has no subscriptions of their own. */}
-          {p.roastedOn && p.isActive && user?.role !== 'Administrator' && (
+          {p.roastedOn && p.canBeSubscribed && user?.role !== 'Administrator' && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4">
               <p className="text-sm text-muted-foreground">Drinking this regularly? Get it delivered on a schedule.</p>
               {user ? (

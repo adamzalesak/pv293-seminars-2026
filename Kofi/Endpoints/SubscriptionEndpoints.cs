@@ -12,7 +12,6 @@ using Kofi.Application.Features.Subscriptions.ResumeSubscription;
 using Kofi.Application.Features.Subscriptions.SkipDelivery;
 using Kofi.Application.Features.Subscriptions.StartCardSetup;
 using Kofi.Application.Features.Subscriptions.Subscribe;
-using Kofi.Auth;
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 

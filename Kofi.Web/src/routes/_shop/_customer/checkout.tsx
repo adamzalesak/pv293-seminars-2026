@@ -23,9 +23,9 @@ export const Route = createFileRoute('/_shop/_customer/checkout')({
 
 const schema = z.object({
   customerName: z.string().trim().min(1, 'Enter the name for the delivery.'),
-  street: z.string().trim().min(1, 'Enter a street and number.'),
+  street: z.string().trim().regex(/\p{L}/u, 'Enter a street name.').regex(/[0-9]/, 'Enter a house number.'),
   city: z.string().trim().min(1, 'Enter a city.'),
-  zip: z.string().trim().min(3, 'Enter a postcode.'),
+  zip: z.string().trim().regex(/^(?:[0-9]{5}|[0-9]{3} [0-9]{2})$/, 'Enter a five-digit postcode.'),
 })
 type Address = z.infer<typeof schema>
 

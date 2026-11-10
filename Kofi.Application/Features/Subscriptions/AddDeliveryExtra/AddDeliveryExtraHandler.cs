@@ -1,5 +1,6 @@
-using Kofi.Application.Abstractions;
 using Kofi.Application.Repositories;
+using Kofi.Common.Abstractions;
+using Kofi.Domain.Products;
 using Kofi.Domain.Shared;
 using Kofi.Domain.Subscriptions;
 
@@ -13,7 +14,8 @@ public class AddDeliveryExtraHandler(ISubscriptionRepository subscriptions, IPro
         var subscription = await subscriptions.GetById(command.SubscriptionId) ?? throw new NotFoundException("Subscription not found");
 
         var product = await products.GetById(command.ProductId) ?? throw new NotFoundException("Product not found");
-        subscription.AddExtra(command.DeliveryId, new OfferedProduct(product.Id, product.Name, product.Price, product.IsActive),
+        subscription.AddExtra(command.DeliveryId,
+            new OfferedProduct(product.Id, product.Name, product.Price, product.Status == ProductStatus.Active),
             new Quantity(command.Quantity));
     }
 }

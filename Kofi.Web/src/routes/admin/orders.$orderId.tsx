@@ -202,9 +202,9 @@ function AdminOrder() {
 }
 
 const addressSchema = z.object({
-  street: z.string().trim().min(1, 'Enter a street.'),
+  street: z.string().trim().regex(/\p{L}/u, 'Enter a street name.').regex(/[0-9]/, 'Enter a house number.'),
   city: z.string().trim().min(1, 'Enter a city.'),
-  zip: z.string().trim().min(3, 'Enter a postcode.'),
+  zip: z.string().trim().regex(/^(?:[0-9]{5}|[0-9]{3} [0-9]{2})$/, 'Enter a five-digit postcode.'),
 })
 
 function AddressDialog({ order }: { order: OrderDetail }) {

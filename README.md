@@ -1,24 +1,33 @@
 # KoFI
 
-The shop has applied ADR-0006 across the application. The Kofi host composes
-Application and Infrastructure; Application depends on Domain and uses
-repository ports for commands and `IApplicationDbContext` for projections.
-EF configurations and concrete repositories live in Infrastructure/Persistence.
-Order, Customer, Product and Subscription protect their own state. Product
-still owns its offer and available stock. Shipping addresses are three strings.
+Ordering is the first extracted module (ADR-0008). It owns Order, Customer,
+ShippingAddress, card references, payment and order handling. Its API,
+Application, Domain and Infrastructure folders live in Kofi.Ordering;
+Kofi.Ordering.Contracts exposes interfaces and plain DTOs. The remaining
+application uses IOrdering.CreateOrder and customer/status queries rather
+than accessing Ordering's model or tables.
 
-`Kofi.Domain` references MediatR but no infrastructure. Application uses
-EF Core for query projections, an explicit dependency. Persistence moves an
-aggregate's version when any owned part changes. Stale writes return 409.
+Product (including stock) and Subscription remain in the shared Clean
+projects. Product now has Draft / Active / Inactive / Discontinued states;
+ShippingAddress accepts 60200 and 602 00 and stores 60200. Historical order
+lines and addresses remain snapshots.
 
-Available stock is subtracted when reserved and returned on cancellation
-or item removal. Shipping does not subtract it again.
+The Kofi host composes the module and the remaining application, including adapters
+for Ordering's product and stock ports. AppDbContext owns products and
+subscriptions; OrderingDbContext owns orders and customers. Both still use
+public tables. One scoped connection and transaction covers their sequential
+SaveChanges calls and a single commit. A failure rolls back both contexts;
+external card charges and e-mails cannot be rolled back. No automatic retry.
 
-The current process and aggregate data maps are in
-`docs/event-storming/kofi-big-picture.excalidraw` and `.svg`.
+Available stock is subtracted on reservation, returned on cancellation or
+item removal, and is not subtracted again on shipment. Aggregate versions
+advance for changes to owned children as well; stale writes return 409.
+
+Ordering, Ordering.Contracts and Ordering.Tests are grouped in the Ordering
+solution folder. Remaining domain tests belong to Kofi.Domain.Tests.
 
 ```sh
-dotnet test Kofi.Domain.Tests/Kofi.Domain.Tests.csproj
+dotnet test Kofi.slnx
 ```
 
 ## Run locally
@@ -50,4 +59,17 @@ The executable web host is Kofi; Kofi.AppHost orchestrates the local Aspire
 application. The default web port is 5173; `Kofi__WebPort` overrides it for
 verification without stopping another running frontend.
 
+Each extracted module exposes Add<Module>Module and Map<Module>Module from
+its root ModuleRegistration.cs. Registration contributes its assembly to
+MediatR discovery and registers its validators, services, context and scoped
+context alias. The host registers global pipeline behavior once. Modules
+initialize and seed their own tables via IModuleInitializer; the host invokes
+these participants without knowing the concrete contexts or seeders.
+
+Product HTTP responses distinguish lifecycle status, sale eligibility and
+new-subscription eligibility. The frontend supports sell-through, filters
+subscription choices and validates the ShippingAddress input rules.
+
 Host-level technical coordination lives in Kofi/Host under namespace Kofi.Host.
+The Kofi.Infrastructure library (before full modularization) owns persistence
+and adapters of the remaining application.

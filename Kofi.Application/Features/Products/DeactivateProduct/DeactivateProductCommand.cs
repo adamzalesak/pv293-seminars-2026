@@ -1,4 +1,4 @@
-using Kofi.Application.Abstractions;
+using Kofi.Common.Abstractions;
 
 namespace Kofi.Application.Features.Products.DeactivateProduct;
 

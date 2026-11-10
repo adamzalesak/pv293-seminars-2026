@@ -1,7 +1,7 @@
-using Kofi.Application.Abstractions;
 using Kofi.Application.Features.Subscriptions.PrepareDelivery;
 using Kofi.Application.Persistence;
-using Kofi.Domain;
+using Kofi.Common.Abstractions;
+using Kofi.Common.Domain;
 using Kofi.Domain.Subscriptions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;

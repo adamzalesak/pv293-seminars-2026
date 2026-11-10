@@ -1,6 +1,6 @@
-using Kofi.Application.Abstractions;
 using Kofi.Application.Repositories;
 using Kofi.Application.Services;
+using Kofi.Common.Abstractions;
 
 namespace Kofi.Application.Features.Subscriptions.PrepareDelivery;
 
@@ -12,7 +12,6 @@ public class PrepareDeliveryHandler(ISubscriptionRepository subscriptions, ISubs
         var subscription = await subscriptions.GetById(command.SubscriptionId) ?? throw new NotFoundException("Subscription not found");
 
         var now = DateTime.Now;
-        var prepared = subscription.PrepareDelivery(command.DeliveryId, Guid.NewGuid(), now);
-        await orders.Create(subscription.CustomerId, now, prepared);
+        await orders.Prepare(subscription, command.DeliveryId, now, ct);
     }
 }

@@ -1,3 +1,4 @@
+using Kofi.Common.Domain;
 using Kofi.Domain.Products;
 using Kofi.Domain.Shared;
 using Xunit;

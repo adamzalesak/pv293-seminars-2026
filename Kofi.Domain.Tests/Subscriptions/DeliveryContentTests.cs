@@ -1,4 +1,4 @@
-using Kofi.Domain;
+using Kofi.Common.Domain;
 using Kofi.Domain.Shared;
 using Kofi.Domain.Subscriptions;
 using Xunit;
@@ -42,7 +42,8 @@ public class DeliveryContentTests
     {
         var sub = SubscriptionFactory.Active();
         var delivery = SubscriptionFactory.NextScheduled(sub);
-        Assert.Throws<DomainRuleException>(() => sub.AddExtra(delivery.Id, Filters, "Filters", new Quantity(quantity), new Price(6.90m, currency)));
+        Assert.Throws<DomainRuleException>(() =>
+            sub.AddExtra(delivery.Id, Filters, "Filters", new Quantity(quantity), new Price(6.90m, currency)));
         Assert.Empty(delivery.Extras);
     }
 
@@ -140,7 +141,8 @@ public class DeliveryContentTests
         var sub = SubscriptionFactory.Active();
         var delivery = SubscriptionFactory.NextScheduled(sub);
         Assert.Throws<DomainRuleException>(() => AddFilters(sub, SubscriptionFactory.FirstDelivery(sub)));
-        Assert.Throws<DomainRuleException>(() => sub.AddExtra(Guid.NewGuid(), Filters, "Filters", new Quantity(1), new Price(6.90m, "EUR")));
+        Assert.Throws<DomainRuleException>(() =>
+            sub.AddExtra(Guid.NewGuid(), Filters, "Filters", new Quantity(1), new Price(6.90m, "EUR")));
         sub.SkipNextDelivery(SubscriptionFactory.Now);
         Assert.Throws<DomainRuleException>(() => AddFilters(sub, delivery));
         var cancelled = SubscriptionFactory.NextScheduled(sub);

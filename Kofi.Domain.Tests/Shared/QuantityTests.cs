@@ -1,5 +1,5 @@
+using Kofi.Common.Domain;
 using Kofi.Domain.Shared;
-using Kofi.Domain;
 using Xunit;
 
 namespace Kofi.Domain.Tests.Shared;

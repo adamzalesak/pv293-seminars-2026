@@ -41,23 +41,42 @@ model {
       description 'REST API and all business logic'
 
       // --- Level 3: the inside of the container ---
-      // Clean dependency directions; the domain model is still shared.
+      // Ordering is extracted; Product and Subscriptions remain in the Clean projects.
       apiProject = component 'Kofi' {
         technology 'ASP.NET Core'
-        description 'HTTP endpoints and composition root'
+        description 'Remaining HTTP endpoints, composition root, product/stock adapters and shared transaction'
       }
       businessProject = component 'Kofi.Application' {
         technology 'C# class library'
-        description 'What the application does'
+        description 'Remaining product and subscription use cases'
       }
       dataProject = component 'Kofi.Infrastructure' {
         technology 'EF Core'
-        description 'DbContext, mapping, repositories'
+        description 'Product and subscription persistence, public tables'
       }
       domainProject = component 'Kofi.Domain' {
         technology 'C# class library, no infrastructure'
-        description 'Business state and the rules that protect it'
+        description 'Product and Subscription models and rules'
       }
+
+      ordering = component 'Kofi.Ordering' {
+        technology 'C# / EF Core'
+        description 'API, Application, Domain and Infrastructure; owns orders and customers in public tables'
+      }
+      orderingContracts = component 'Kofi.Ordering.Contracts' {
+        technology 'Interfaces and plain DTOs'
+        description 'CreateOrder, customer and order-status queries'
+      }
+      common = component 'Kofi.Common' {
+        technology 'C# class library'
+        description 'Technical request, domain-event and aggregate abstractions; no EF'
+      }
+      apiProject -> ordering 'composes'
+      ordering -> orderingContracts 'implements'
+      businessProject -> orderingContracts 'requests orders and customer information'
+      ordering -> common 'references'
+      businessProject -> common 'references'
+      domainProject -> common 'references'
 
       apiProject -> businessProject 'references'
       apiProject -> dataProject 'references'
@@ -86,7 +105,8 @@ model {
       }
     }
 
-    dataProject -> db 'reads / writes' 'SQL (EF Core)'
+    dataProject -> db 'products and subscriptions' 'SQL (EF Core)'
+    ordering -> db 'orders and customers' 'SQL (EF Core)'
   }
 
   paymentGateway = externalSystem 'Payment gateway' {
@@ -116,7 +136,7 @@ views {
   }
 
   view insideApi of api {
-    title 'KoFI — components inside the container (C4 L3, per ADR-0002 and ADR-0006)'
+    title 'KoFI — components inside the container (C4 L3, first module per ADR-0008)'
     include *
   }
 }
